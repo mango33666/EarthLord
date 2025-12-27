@@ -11,9 +11,10 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
+    @State private var columnVisibility = NavigationSplitViewVisibility.detailOnly
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List {
                 ForEach(items) { item in
                     NavigationLink {
