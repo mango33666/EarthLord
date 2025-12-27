@@ -6,13 +6,10 @@
 //
 
 import SwiftUI
-import Supabase
 
-// MARK: - Supabase Client 初始化
-let supabase = SupabaseClient(
-    supabaseURL: URL(string: "https://npmazbowtfowbxvpjhst.supabase.co")!,
-    supabaseKey: "sb_publishable_59Pm_KFRXgXJUVYUK0nwKg_RqnVRCKQ"
-)
+// MARK: - Supabase 配置
+let supabaseURL = "https://npmazbowtfowbxvpjhst.supabase.co"
+let supabaseKey = "sb_publishable_59Pm_KFRXgXJUVYUK0nwKg_RqnVRCKQ"
 
 // MARK: - 测试页面视图
 struct SupabaseTestView: View {
@@ -142,27 +139,84 @@ struct SupabaseTestView: View {
     private func testConnection() {
         isTesting = true
         debugLog = "🔍 开始测试 Supabase 连接...\n"
-        debugLog += "📡 目标: https://npmazbowtfowbxvpjhst.supabase.co\n"
-        debugLog += "⏳ 查询不存在的表以验证连接...\n\n"
+        debugLog += "📡 目标: \(supabaseURL)\n"
+        debugLog += "⏳ 使用 REST API 查询不存在的表以验证连接...\n\n"
 
         Task {
             do {
-                // 故意查询一个不存在的表来测试连接
-                let _ = try await supabase
-                    .from("non_existent_table")
-                    .select()
-                    .execute()
+                // 构建 REST API 请求 URL
+                let endpoint = "\(supabaseURL)/rest/v1/non_existent_table?select=*"
+                guard let url = URL(string: endpoint) else {
+                    await updateResult(success: false, message: "❌ URL 格式错误")
+                    return
+                }
 
-                // 如果没有抛出错误，说明表存在（不太可能）
-                await updateResult(
-                    success: true,
-                    message: "⚠️ 意外：查询成功（表可能存在）"
-                )
+                // 创建请求
+                var request = URLRequest(url: url)
+                request.httpMethod = "GET"
+                request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+                // 发送请求
+                let (data, response) = try await URLSession.shared.data(for: request)
+
+                // 分析响应
+                if let httpResponse = response as? HTTPURLResponse {
+                    await analyzeHTTPResponse(httpResponse, data: data)
+                }
 
             } catch {
                 // 分析错误信息
                 await analyzeError(error)
             }
+        }
+    }
+
+    // MARK: - HTTP 响应分析
+    @MainActor
+    private func analyzeHTTPResponse(_ response: HTTPURLResponse, data: Data) {
+        let statusCode = response.statusCode
+        debugLog += "📊 HTTP 状态码: \(statusCode)\n"
+
+        // 尝试解析响应内容
+        if let responseString = String(data: data, encoding: .utf8) {
+            debugLog += "📋 响应内容:\n\(responseString.prefix(200))\n\n"
+
+            // 判断 1：404 错误（表不存在）
+            if statusCode == 404 || responseString.contains("relation") ||
+               responseString.contains("does not exist") {
+                debugLog += "✅ 检测到 404 或表不存在错误\n"
+                debugLog += "✅ 说明已成功连接到 Supabase\n"
+                debugLog += "✅ 数据库响应正常！\n"
+                updateResult(success: true, message: "✅ 连接成功（服务器已响应）")
+                return
+            }
+
+            // 判断 2：PGRST 错误码
+            if responseString.contains("PGRST") {
+                debugLog += "✅ 检测到 PGRST 错误码\n"
+                debugLog += "✅ 说明 PostgREST 服务器已响应\n"
+                debugLog += "✅ Supabase 连接正常！\n"
+                updateResult(success: true, message: "✅ 连接成功（服务器已响应）")
+                return
+            }
+
+            // 判断 3：认证错误（也说明连接成功）
+            if statusCode == 401 || statusCode == 403 {
+                debugLog += "⚠️ 认证错误（但连接成功）\n"
+                debugLog += "✅ 服务器可访问\n"
+                updateResult(success: true, message: "✅ 连接成功（需要检查 API Key）")
+                return
+            }
+        }
+
+        // 判断 4：其他成功状态码
+        if statusCode >= 200 && statusCode < 300 {
+            debugLog += "✅ 请求成功\n"
+            updateResult(success: true, message: "✅ 连接成功")
+        } else {
+            debugLog += "⚠️ 意外的状态码\n"
+            updateResult(success: false, message: "❌ 状态码: \(statusCode)")
         }
     }
 
@@ -172,36 +226,18 @@ struct SupabaseTestView: View {
         let errorDescription = error.localizedDescription
         debugLog += "📋 错误详情：\n\(errorDescription)\n\n"
 
-        // 判断 1：PGRST 错误（PostgreSQL REST API 错误）
-        if errorDescription.contains("PGRST") {
-            debugLog += "✅ 检测到 PGRST 错误码\n"
-            debugLog += "✅ 说明服务器已成功响应\n"
-            debugLog += "✅ Supabase 连接正常！\n"
-            updateResult(success: true, message: "✅ 连接成功（服务器已响应）")
-            return
-        }
-
-        // 判断 2：表不存在错误
-        if errorDescription.contains("Could not find the") ||
-           errorDescription.contains("relation") && errorDescription.contains("does not exist") {
-            debugLog += "✅ 检测到表不存在错误\n"
-            debugLog += "✅ 说明已连接到数据库\n"
-            debugLog += "✅ Supabase 连接正常！\n"
-            updateResult(success: true, message: "✅ 连接成功（表不存在，但连接正常）")
-            return
-        }
-
-        // 判断 3：网络或 URL 错误
+        // 判断：网络或 URL 错误
         if errorDescription.contains("hostname") ||
            errorDescription.contains("URL") ||
-           errorDescription.contains("NSURLErrorDomain") {
+           errorDescription.contains("NSURLErrorDomain") ||
+           errorDescription.contains("Could not connect") {
             debugLog += "❌ 检测到网络错误\n"
             debugLog += "❌ 可能原因：URL 配置错误或网络不可用\n"
             updateResult(success: false, message: "❌ 连接失败：URL 错误或无网络")
             return
         }
 
-        // 判断 4：其他错误
+        // 其他错误
         debugLog += "❓ 未知错误类型\n"
         debugLog += "详细信息：\n\(error)\n"
         updateResult(success: false, message: "❌ 连接失败：\(errorDescription)")
