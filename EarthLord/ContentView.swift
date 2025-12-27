@@ -9,56 +9,26 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
     var body: some View {
-        NavigationStack {
-            VStack {
-                List {
-                    ForEach(items) { item in
-                        NavigationLink {
-                            Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                        } label: {
-                            Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                        }
-                    }
-                    .onDelete(perform: deleteItems)
-                }
+        VStack(spacing: 20) {
+            Spacer()
 
-                Spacer()
+            Image(systemName: "globe")
+                .font(.system(size: 60))
+                .foregroundColor(.blue)
 
-                Text("Developed by mango")
-                    .font(.headline)
-                    .foregroundColor(.blue)
-                    .padding()
-            }
-            .navigationTitle("EarthLord")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        }
-    }
+            Text("Hello, world!")
+                .font(.title2)
+                .fontWeight(.regular)
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
+            Spacer()
+                .frame(height: 40)
 
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
+            Text("Developed by mango")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+
+            Spacer()
         }
     }
 }
