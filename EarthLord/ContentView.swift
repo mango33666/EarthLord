@@ -40,7 +40,16 @@ struct ContentView: View {
                 }
             }
         } detail: {
-            Text("Select an item")
+            VStack(spacing: 20) {
+                Text("Select an item")
+
+                Spacer()
+
+                Text("Developed by mango")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                    .padding()
+            }
         }
     }
 
