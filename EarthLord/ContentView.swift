@@ -10,25 +10,38 @@ import SwiftData
 
 struct ContentView: View {
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
+        NavigationStack {
+            VStack(spacing: 20) {
+                Spacer()
 
-            Image(systemName: "globe")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
+                Image(systemName: "globe")
+                    .font(.system(size: 60))
+                    .foregroundColor(.blue)
 
-            Text("Hello, world!")
-                .font(.title2)
-                .fontWeight(.regular)
+                Text("Hello, world!")
+                    .font(.title2)
+                    .fontWeight(.regular)
 
-            Spacer()
-                .frame(height: 40)
+                Spacer()
+                    .frame(height: 40)
 
-            Text("Developed by mango")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+                Text("Developed by mango")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
 
-            Spacer()
+                NavigationLink(destination: TestView()) {
+                    Text("进入测试页")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                }
+                .padding(.top, 20)
+
+                Spacer()
+            }
         }
     }
 }
