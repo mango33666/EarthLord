@@ -5,7 +5,8 @@
 //  Created by 芒果888 on 2025/12/29.
 //
 
-import SwiftUI
+import Foundation
+import Combine
 
 // MARK: - Response Models
 
