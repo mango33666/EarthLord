@@ -6,9 +6,48 @@
 //
 
 import SwiftUI
-import Supabase
+
+// MARK: - Response Models
+
+struct AuthResponse: Codable {
+    let access_token: String?
+    let refresh_token: String?
+    let user: UserResponse?
+}
+
+struct UserResponse: Codable {
+    let id: String
+    let email: String?
+}
+
+struct ErrorResponse: Codable {
+    let message: String
+}
+
+// MARK: - Auth Error
+
+enum AuthError: Error, LocalizedError {
+    case invalidResponse
+    case apiError(String)
+    case httpError(Int)
+    case invalidData
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "无效的服务器响应"
+        case .apiError(let message):
+            return message
+        case .httpError(let code):
+            return "HTTP 错误：\(code)"
+        case .invalidData:
+            return "数据格式错误"
+        }
+    }
+}
 
 // MARK: - User Model
+
 /// 用户信息模型
 struct User: Identifiable, Codable {
     let id: UUID
@@ -25,6 +64,7 @@ struct User: Identifiable, Codable {
 }
 
 // MARK: - Auth Manager
+
 /// 认证管理器 - 管理用户注册、登录、密码重置等认证流程
 @MainActor
 class AuthManager: ObservableObject {
@@ -55,18 +95,21 @@ class AuthManager: ObservableObject {
     /// OTP 是否已验证（等待设置密码）
     @Published var otpVerified: Bool = false
 
-    // MARK: - Supabase Client
+    // MARK: - Supabase Configuration
 
-    private let supabase: SupabaseClient
+    private let supabaseURL = "https://npmazbowtfowbxvpjhst.supabase.co"
+    private let supabaseKey = "sb_publishable_59Pm_KFRXgXJUVYUK0nwKg_RqnVRCKQ"
+
+    /// 当前访问令牌
+    private var accessToken: String?
+    private var refreshToken: String?
 
     // MARK: - Initialization
 
     private init() {
-        // 初始化 Supabase 客户端
-        self.supabase = SupabaseClient(
-            supabaseURL: URL(string: "https://npmazbowtfowbxvpjhst.supabase.co")!,
-            supabaseKey: "sb_publishable_59Pm_KFRXgXJUVYUK0nwKg_RqnVRCKQ"
-        )
+        // 从 UserDefaults 恢复令牌
+        accessToken = UserDefaults.standard.string(forKey: "access_token")
+        refreshToken = UserDefaults.standard.string(forKey: "refresh_token")
 
         // 启动时检查会话
         Task {
@@ -74,102 +117,177 @@ class AuthManager: ObservableObject {
         }
     }
 
+    // MARK: - Helper Methods
+
+    /// 创建认证请求
+    private func createAuthRequest(endpoint: String, method: String = "POST", body: [String: Any]? = nil) -> URLRequest? {
+        guard let url = URL(string: "\(supabaseURL)/auth/v1/\(endpoint)") else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if let accessToken = accessToken {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let body = body {
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+
+        return request
+    }
+
+    /// 保存令牌
+    private func saveTokens(accessToken: String?, refreshToken: String?) {
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+
+        if let accessToken = accessToken {
+            UserDefaults.standard.set(accessToken, forKey: "access_token")
+        }
+        if let refreshToken = refreshToken {
+            UserDefaults.standard.set(refreshToken, forKey: "refresh_token")
+        }
+    }
+
+    /// 清除令牌
+    private func clearTokens() {
+        accessToken = nil
+        refreshToken = nil
+        UserDefaults.standard.removeObject(forKey: "access_token")
+        UserDefaults.standard.removeObject(forKey: "refresh_token")
+    }
+
     // MARK: - 注册流程
 
     /// 发送注册验证码
-    /// - Parameter email: 用户邮箱
     func sendRegisterOTP(email: String) async {
         isLoading = true
         errorMessage = nil
         otpSent = false
 
+        guard let request = createAuthRequest(
+            endpoint: "otp",
+            body: [
+                "email": email,
+                "create_user": true
+            ]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 调用 Supabase 发送 OTP（自动创建用户）
-            try await supabase.auth.signInWithOTP(
-                email: email,
-                redirectTo: nil,
-                shouldCreateUser: true,
-                data: nil
-            )
+            let (_, response) = try await URLSession.shared.data(for: request)
 
-            // 成功发送
-            otpSent = true
-            errorMessage = nil
-
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    otpSent = true
+                    errorMessage = nil
+                } else {
+                    errorMessage = "发送验证码失败（状态码：\(httpResponse.statusCode)）"
+                }
+            }
         } catch {
-            // 发送失败
             errorMessage = "发送验证码失败：\(error.localizedDescription)"
-            otpSent = false
         }
 
         isLoading = false
     }
 
     /// 验证注册验证码
-    /// - Parameters:
-    ///   - email: 用户邮箱
-    ///   - code: 验证码
     func verifyRegisterOTP(email: String, code: String) async {
         isLoading = true
         errorMessage = nil
         otpVerified = false
 
+        guard let request = createAuthRequest(
+            endpoint: "verify",
+            body: [
+                "email": email,
+                "token": code,
+                "type": "email"
+            ]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 验证 OTP（类型为 email）
-            let session = try await supabase.auth.verifyOTP(
-                email: email,
-                token: code,
-                type: .email
-            )
+            let (data, response) = try await URLSession.shared.data(for: request)
 
-            // 验证成功，用户已登录但需要设置密码
-            otpVerified = true
-            needsPasswordSetup = true
-            isAuthenticated = false  // 注册流程未完成
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    if let authResponse = try? JSONDecoder().decode(AuthResponse.self, from: data) {
+                        // 保存令牌
+                        saveTokens(
+                            accessToken: authResponse.access_token,
+                            refreshToken: authResponse.refresh_token
+                        )
 
-            // 获取用户信息
-            if let supabaseUser = session.user {
-                currentUser = User(
-                    id: supabaseUser.id,
-                    email: supabaseUser.email,
-                    username: nil,
-                    avatarUrl: nil
-                )
+                        // 设置用户信息
+                        if let userResponse = authResponse.user {
+                            currentUser = User(
+                                id: UUID(uuidString: userResponse.id) ?? UUID(),
+                                email: userResponse.email,
+                                username: nil,
+                                avatarUrl: nil
+                            )
+                        }
+
+                        // 验证成功，需要设置密码
+                        otpVerified = true
+                        needsPasswordSetup = true
+                        isAuthenticated = false
+                        errorMessage = nil
+                    }
+                } else {
+                    errorMessage = "验证码错误或已过期"
+                }
             }
-
-            errorMessage = nil
-
         } catch {
-            // 验证失败
-            errorMessage = "验证码错误或已过期：\(error.localizedDescription)"
-            otpVerified = false
-            needsPasswordSetup = false
+            errorMessage = "验证失败：\(error.localizedDescription)"
         }
 
         isLoading = false
     }
 
     /// 完成注册（设置密码）
-    /// - Parameter password: 用户密码
     func completeRegistration(password: String) async {
         isLoading = true
         errorMessage = nil
 
+        guard let request = createAuthRequest(
+            endpoint: "user",
+            method: "PUT",
+            body: ["password": password]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 更新用户密码
-            try await supabase.auth.update(
-                user: UserAttributes(password: password)
-            )
+            let (_, response) = try await URLSession.shared.data(for: request)
 
-            // 注册完成
-            needsPasswordSetup = false
-            isAuthenticated = true
-            otpVerified = false
-
-            errorMessage = nil
-
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    // 密码设置成功
+                    needsPasswordSetup = false
+                    isAuthenticated = true
+                    otpVerified = false
+                    errorMessage = nil
+                } else {
+                    errorMessage = "设置密码失败（状态码：\(httpResponse.statusCode)）"
+                }
+            }
         } catch {
-            // 设置密码失败
             errorMessage = "设置密码失败：\(error.localizedDescription)"
         }
 
@@ -179,40 +297,55 @@ class AuthManager: ObservableObject {
     // MARK: - 登录方法
 
     /// 邮箱密码登录
-    /// - Parameters:
-    ///   - email: 邮箱
-    ///   - password: 密码
     func signIn(email: String, password: String) async {
         isLoading = true
         errorMessage = nil
 
+        guard let request = createAuthRequest(
+            endpoint: "token?grant_type=password",
+            body: [
+                "email": email,
+                "password": password
+            ]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 调用 Supabase 登录
-            let session = try await supabase.auth.signIn(
-                email: email,
-                password: password
-            )
+            let (data, response) = try await URLSession.shared.data(for: request)
 
-            // 登录成功
-            isAuthenticated = true
-            needsPasswordSetup = false
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    if let authResponse = try? JSONDecoder().decode(AuthResponse.self, from: data) {
+                        // 保存令牌
+                        saveTokens(
+                            accessToken: authResponse.access_token,
+                            refreshToken: authResponse.refresh_token
+                        )
 
-            // 获取用户信息
-            if let supabaseUser = session.user {
-                currentUser = User(
-                    id: supabaseUser.id,
-                    email: supabaseUser.email,
-                    username: nil,
-                    avatarUrl: nil
-                )
+                        // 设置用户信息
+                        if let userResponse = authResponse.user {
+                            currentUser = User(
+                                id: UUID(uuidString: userResponse.id) ?? UUID(),
+                                email: userResponse.email,
+                                username: nil,
+                                avatarUrl: nil
+                            )
+                        }
+
+                        // 登录成功
+                        isAuthenticated = true
+                        needsPasswordSetup = false
+                        errorMessage = nil
+                    }
+                } else {
+                    errorMessage = "邮箱或密码错误"
+                }
             }
-
-            errorMessage = nil
-
         } catch {
-            // 登录失败
             errorMessage = "登录失败：\(error.localizedDescription)"
-            isAuthenticated = false
         }
 
         isLoading = false
@@ -221,94 +354,126 @@ class AuthManager: ObservableObject {
     // MARK: - 找回密码流程
 
     /// 发送密码重置验证码
-    /// - Parameter email: 用户邮箱
     func sendResetOTP(email: String) async {
         isLoading = true
         errorMessage = nil
         otpSent = false
 
+        guard let request = createAuthRequest(
+            endpoint: "recover",
+            body: ["email": email]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 调用 Supabase 发送密码重置邮件
-            try await supabase.auth.resetPasswordForEmail(email)
+            let (_, response) = try await URLSession.shared.data(for: request)
 
-            // 成功发送
-            otpSent = true
-            errorMessage = nil
-
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    otpSent = true
+                    errorMessage = nil
+                } else {
+                    errorMessage = "发送重置邮件失败"
+                }
+            }
         } catch {
-            // 发送失败
-            errorMessage = "发送重置邮件失败：\(error.localizedDescription)"
-            otpSent = false
+            errorMessage = "发送失败：\(error.localizedDescription)"
         }
 
         isLoading = false
     }
 
     /// 验证密码重置验证码
-    /// - Parameters:
-    ///   - email: 用户邮箱
-    ///   - code: 验证码
     func verifyResetOTP(email: String, code: String) async {
         isLoading = true
         errorMessage = nil
         otpVerified = false
 
+        guard let request = createAuthRequest(
+            endpoint: "verify",
+            body: [
+                "email": email,
+                "token": code,
+                "type": "recovery"  // 注意：类型是 recovery
+            ]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // ⚠️ 注意：类型是 .recovery 不是 .email
-            let session = try await supabase.auth.verifyOTP(
-                email: email,
-                token: code,
-                type: .recovery
-            )
+            let (data, response) = try await URLSession.shared.data(for: request)
 
-            // 验证成功，用户已登录但需要设置新密码
-            otpVerified = true
-            needsPasswordSetup = true
-            isAuthenticated = false  // 密码重置流程未完成
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    if let authResponse = try? JSONDecoder().decode(AuthResponse.self, from: data) {
+                        // 保存令牌
+                        saveTokens(
+                            accessToken: authResponse.access_token,
+                            refreshToken: authResponse.refresh_token
+                        )
 
-            // 获取用户信息
-            if let supabaseUser = session.user {
-                currentUser = User(
-                    id: supabaseUser.id,
-                    email: supabaseUser.email,
-                    username: nil,
-                    avatarUrl: nil
-                )
+                        // 设置用户信息
+                        if let userResponse = authResponse.user {
+                            currentUser = User(
+                                id: UUID(uuidString: userResponse.id) ?? UUID(),
+                                email: userResponse.email,
+                                username: nil,
+                                avatarUrl: nil
+                            )
+                        }
+
+                        // 验证成功，需要设置新密码
+                        otpVerified = true
+                        needsPasswordSetup = true
+                        isAuthenticated = false
+                        errorMessage = nil
+                    }
+                } else {
+                    errorMessage = "验证码错误或已过期"
+                }
             }
-
-            errorMessage = nil
-
         } catch {
-            // 验证失败
-            errorMessage = "验证码错误或已过期：\(error.localizedDescription)"
-            otpVerified = false
-            needsPasswordSetup = false
+            errorMessage = "验证失败：\(error.localizedDescription)"
         }
 
         isLoading = false
     }
 
     /// 重置密码（设置新密码）
-    /// - Parameter newPassword: 新密码
     func resetPassword(newPassword: String) async {
         isLoading = true
         errorMessage = nil
 
+        guard let request = createAuthRequest(
+            endpoint: "user",
+            method: "PUT",
+            body: ["password": newPassword]
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 更新用户密码
-            try await supabase.auth.update(
-                user: UserAttributes(password: newPassword)
-            )
+            let (_, response) = try await URLSession.shared.data(for: request)
 
-            // 密码重置完成
-            needsPasswordSetup = false
-            isAuthenticated = true
-            otpVerified = false
-
-            errorMessage = nil
-
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    // 密码重置成功
+                    needsPasswordSetup = false
+                    isAuthenticated = true
+                    otpVerified = false
+                    errorMessage = nil
+                } else {
+                    errorMessage = "重置密码失败（状态码：\(httpResponse.statusCode)）"
+                }
+            }
         } catch {
-            // 重置密码失败
             errorMessage = "重置密码失败：\(error.localizedDescription)"
         }
 
@@ -320,18 +485,12 @@ class AuthManager: ObservableObject {
     /// Apple 登录（待实现）
     func signInWithApple() async {
         // TODO: 实现 Apple 登录
-        // 1. 使用 ASAuthorizationController 获取 Apple ID 凭证
-        // 2. 调用 supabase.auth.signInWithIdToken(provider: .apple, idToken: token)
-        // 3. 处理登录结果
         errorMessage = "Apple 登录功能开发中..."
     }
 
     /// Google 登录（待实现）
     func signInWithGoogle() async {
         // TODO: 实现 Google 登录
-        // 1. 使用 GoogleSignIn SDK 获取 Google 凭证
-        // 2. 调用 supabase.auth.signInWithIdToken(provider: .google, idToken: token)
-        // 3. 处理登录结果
         errorMessage = "Google 登录功能开发中..."
     }
 
@@ -342,21 +501,35 @@ class AuthManager: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        guard let request = createAuthRequest(
+            endpoint: "logout",
+            method: "POST"
+        ) else {
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
         do {
-            // 调用 Supabase 登出
-            try await supabase.auth.signOut()
+            let (_, response) = try await URLSession.shared.data(for: request)
 
-            // 清空状态
-            isAuthenticated = false
-            needsPasswordSetup = false
-            currentUser = nil
-            otpSent = false
-            otpVerified = false
-            errorMessage = nil
-
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 204 || httpResponse.statusCode == 200 {
+                    // 清空状态
+                    clearTokens()
+                    isAuthenticated = false
+                    needsPasswordSetup = false
+                    currentUser = nil
+                    otpSent = false
+                    otpVerified = false
+                    errorMessage = nil
+                }
+            }
         } catch {
-            // 登出失败
-            errorMessage = "登出失败：\(error.localizedDescription)"
+            // 即使登出失败，也清空本地状态
+            clearTokens()
+            isAuthenticated = false
+            currentUser = nil
         }
 
         isLoading = false
@@ -364,34 +537,46 @@ class AuthManager: ObservableObject {
 
     /// 检查会话状态（启动时调用）
     func checkSession() async {
+        guard let accessToken = accessToken else {
+            isAuthenticated = false
+            return
+        }
+
         isLoading = true
 
+        guard let request = createAuthRequest(
+            endpoint: "user",
+            method: "GET"
+        ) else {
+            isAuthenticated = false
+            isLoading = false
+            return
+        }
+
         do {
-            // 获取当前会话
-            let session = try await supabase.auth.session
+            let (data, response) = try await URLSession.shared.data(for: request)
 
-            // 如果有会话，表示用户已登录
-            if let supabaseUser = session.user {
-                currentUser = User(
-                    id: supabaseUser.id,
-                    email: supabaseUser.email,
-                    username: nil,
-                    avatarUrl: nil
-                )
-
-                // 检查是否需要设置密码
-                // 注意：这里需要根据实际业务逻辑判断
-                // 如果用户有密码，则认为已完成认证
-                isAuthenticated = true
-                needsPasswordSetup = false
-            } else {
-                // 没有会话
-                isAuthenticated = false
-                currentUser = nil
+            if let httpResponse = response as? HTTPURLResponse {
+                if httpResponse.statusCode == 200 {
+                    if let userResponse = try? JSONDecoder().decode(UserResponse.self, from: data) {
+                        currentUser = User(
+                            id: UUID(uuidString: userResponse.id) ?? UUID(),
+                            email: userResponse.email,
+                            username: nil,
+                            avatarUrl: nil
+                        )
+                        isAuthenticated = true
+                        needsPasswordSetup = false
+                    }
+                } else {
+                    // 令牌无效，清除
+                    clearTokens()
+                    isAuthenticated = false
+                    currentUser = nil
+                }
             }
-
         } catch {
-            // 没有有效会话
+            clearTokens()
             isAuthenticated = false
             currentUser = nil
         }
