@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A6614C8B2F00772500FB2D7B /* SystemPackage in Frameworks */ = {isa = PBXBuildFile; productRef = A6614C8A2F00772500FB2D7B /* SystemPackage */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A69E0BFE2F00334A0061F967 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A6614C8B2F00772500FB2D7B /* SystemPackage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = EarthLord;
 			packageProductDependencies = (
+				A6614C8A2F00772500FB2D7B /* SystemPackage */,
 			);
 			productName = EarthLord;
 			productReference = A69E0BEE2F0033490061F967 /* EarthLord.app */;
@@ -197,6 +203,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				A6614C862F006CB300FB2D7B /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				A6614C892F00772500FB2D7B /* XCRemoteSwiftPackageReference "swift-system" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A69E0BEF2F0033490061F967 /* Products */;
@@ -628,7 +635,23 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		A6614C892F00772500FB2D7B /* XCRemoteSwiftPackageReference "swift-system" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-system.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.6.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A6614C8A2F00772500FB2D7B /* SystemPackage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6614C892F00772500FB2D7B /* XCRemoteSwiftPackageReference "swift-system" */;
+			productName = SystemPackage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A69E0BE62F0033490061F967 /* Project object */;
 }
