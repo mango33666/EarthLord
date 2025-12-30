@@ -659,7 +659,7 @@ class AuthManager: ObservableObject {
 
     /// 检查会话状态（启动时调用）
     func checkSession() async {
-        guard let accessToken = accessToken else {
+        guard accessToken != nil else {
             isAuthenticated = false
             return
         }
@@ -758,5 +758,89 @@ class AuthManager: ObservableObject {
             return false
         }
         return true
+    }
+
+    // MARK: - 删除账户
+
+    /// 删除当前用户账户
+    func deleteAccount() async {
+        print("🗑️ 开始删除账户...")
+        isLoading = true
+        errorMessage = nil
+
+        guard let accessToken = accessToken else {
+            print("❌ 未找到访问令牌")
+            errorMessage = "未登录，无法删除账户"
+            isLoading = false
+            return
+        }
+
+        print("📡 准备调用删除账户边缘函数...")
+
+        // 调用边缘函数
+        let endpoint = "\(supabaseURL)/functions/v1/delete-account"
+        guard let url = URL(string: endpoint) else {
+            print("❌ URL 格式错误")
+            errorMessage = "删除账户失败：URL 错误"
+            isLoading = false
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        print("🔑 使用 JWT token 调用边缘函数...")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("❌ 无效的响应")
+                errorMessage = "删除账户失败：无效的响应"
+                isLoading = false
+                return
+            }
+
+            print("📥 收到响应，状态码: \(httpResponse.statusCode)")
+
+            if httpResponse.statusCode == 200 {
+                print("✅ 账户删除成功")
+
+                // 解析响应
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("📋 响应内容: \(responseString)")
+                }
+
+                // 清空本地状态
+                print("🧹 清理本地数据...")
+                clearTokens()
+                isAuthenticated = false
+                currentUser = nil
+                otpSent = false
+                otpVerified = false
+                needsPasswordSetup = false
+
+                print("🎉 账户删除完成，用户已登出")
+                errorMessage = nil
+            } else {
+                // 解析错误信息
+                if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                    print("❌ 删除失败: \(errorResponse.message)")
+                    errorMessage = "删除账户失败: \(errorResponse.message)"
+                } else {
+                    let errorText = String(data: data, encoding: .utf8) ?? "未知错误"
+                    print("❌ 删除失败: \(errorText)")
+                    errorMessage = "删除账户失败（状态码：\(httpResponse.statusCode)）"
+                }
+            }
+        } catch {
+            print("❌ 网络请求失败: \(error.localizedDescription)")
+            errorMessage = "删除账户失败：\(error.localizedDescription)"
+        }
+
+        isLoading = false
     }
 }

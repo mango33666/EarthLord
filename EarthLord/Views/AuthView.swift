@@ -380,7 +380,7 @@ struct AuthView: View {
                     .placeholder(when: otpCode.isEmpty) {
                         Text("请输入 6 位验证码").foregroundColor(Color.white.opacity(0.3))
                     }
-                    .onChange(of: otpCode) { newValue in
+                    .onChange(of: otpCode) { oldValue, newValue in
                         if newValue.count > 6 {
                             otpCode = String(newValue.prefix(6))
                         }

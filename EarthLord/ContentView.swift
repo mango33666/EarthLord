@@ -14,9 +14,9 @@ struct ContentView: View {
 
     var body: some View {
         MainTabView()
-            .onChange(of: authManager.isAuthenticated) { isAuth in
+            .onChange(of: authManager.isAuthenticated) { oldValue, newValue in
                 // 当用户登出时，此视图会自动被 RootView 替换为 AuthView
-                if !isAuth {
+                if !newValue {
                     print("用户已登出，即将返回登录页面")
                 }
             }

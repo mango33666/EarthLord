@@ -147,7 +147,7 @@ struct SupabaseTestView: View {
                 // 构建 REST API 请求 URL
                 let endpoint = "\(supabaseURL)/rest/v1/non_existent_table?select=*"
                 guard let url = URL(string: endpoint) else {
-                    await updateResult(success: false, message: "❌ URL 格式错误")
+                    updateResult(success: false, message: "❌ URL 格式错误")
                     return
                 }
 
@@ -162,12 +162,12 @@ struct SupabaseTestView: View {
 
                 // 分析响应
                 if let httpResponse = response as? HTTPURLResponse {
-                    await analyzeHTTPResponse(httpResponse, data: data)
+                    analyzeHTTPResponse(httpResponse, data: data)
                 }
 
             } catch {
                 // 分析错误信息
-                await analyzeError(error)
+                analyzeError(error)
             }
         }
     }
