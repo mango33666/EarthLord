@@ -7,6 +7,8 @@
 
 import Foundation
 import Combine
+import GoogleSignIn
+import UIKit
 
 // MARK: - Response Models
 
@@ -100,6 +102,10 @@ class AuthManager: ObservableObject {
 
     private let supabaseURL = "https://npmazbowtfowbxvpjhst.supabase.co"
     private let supabaseKey = "sb_publishable_59Pm_KFRXgXJUVYUK0nwKg_RqnVRCKQ"
+
+    // MARK: - Google Configuration
+
+    private let googleClientID = "673837093726-u0gq3h8fr7dnea6b8bm917og4o6jut64.apps.googleusercontent.com"
 
     /// 当前访问令牌
     private var accessToken: String?
@@ -479,7 +485,7 @@ class AuthManager: ObservableObject {
         isLoading = false
     }
 
-    // MARK: - 第三方登录（预留）
+    // MARK: - 第三方登录
 
     /// Apple 登录（待实现）
     func signInWithApple() async {
@@ -487,10 +493,127 @@ class AuthManager: ObservableObject {
         errorMessage = "Apple 登录功能开发中..."
     }
 
-    /// Google 登录（待实现）
+    /// Google 登录
     func signInWithGoogle() async {
-        // TODO: 实现 Google 登录
-        errorMessage = "Google 登录功能开发中..."
+        print("🔐 开始 Google 登录流程...")
+        isLoading = true
+        errorMessage = nil
+
+        // 获取根视图控制器
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            print("❌ 无法获取根视图控制器")
+            errorMessage = "无法初始化 Google 登录"
+            isLoading = false
+            return
+        }
+
+        print("✅ 获取根视图控制器成功")
+
+        // 配置 Google Sign-In
+        let config = GIDConfiguration(clientID: googleClientID)
+        GIDSignIn.sharedInstance.configuration = config
+
+        print("🔧 Google Sign-In 配置完成，开始授权...")
+
+        do {
+            // 执行 Google 登录
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController)
+            print("✅ Google 授权成功，用户: \(result.user.profile?.email ?? "未知")")
+
+            // 获取 ID Token
+            guard let idToken = result.user.idToken?.tokenString else {
+                print("❌ 无法获取 Google ID Token")
+                errorMessage = "Google 登录失败：无法获取令牌"
+                isLoading = false
+                return
+            }
+
+            print("🎫 成功获取 Google ID Token")
+            print("📤 准备发送到 Supabase 进行验证...")
+
+            // 使用 Google ID Token 登录 Supabase
+            await signInWithGoogleToken(idToken: idToken)
+
+        } catch {
+            print("❌ Google 登录失败: \(error.localizedDescription)")
+            errorMessage = "Google 登录失败: \(error.localizedDescription)"
+            isLoading = false
+        }
+    }
+
+    /// 使用 Google ID Token 登录 Supabase
+    private func signInWithGoogleToken(idToken: String) async {
+        print("🔄 开始使用 Google Token 登录 Supabase...")
+
+        guard let request = createAuthRequest(
+            endpoint: "token?grant_type=id_token",
+            body: [
+                "provider": "google",
+                "id_token": idToken
+            ]
+        ) else {
+            print("❌ 创建 Supabase 请求失败")
+            errorMessage = "创建请求失败"
+            isLoading = false
+            return
+        }
+
+        print("📡 发送请求到 Supabase...")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📥 收到 Supabase 响应，状态码: \(httpResponse.statusCode)")
+
+                if httpResponse.statusCode == 200 {
+                    if let authResponse = try? JSONDecoder().decode(AuthResponse.self, from: data) {
+                        print("✅ Supabase 认证成功")
+
+                        // 保存令牌
+                        saveTokens(
+                            accessToken: authResponse.access_token,
+                            refreshToken: authResponse.refresh_token
+                        )
+                        print("💾 令牌已保存")
+
+                        // 设置用户信息
+                        if let userResponse = authResponse.user {
+                            currentUser = User(
+                                id: UUID(uuidString: userResponse.id) ?? UUID(),
+                                email: userResponse.email,
+                                username: nil,
+                                avatarUrl: nil
+                            )
+                            print("👤 用户信息已设置: \(userResponse.email ?? "未知")")
+                        }
+
+                        // 登录成功
+                        isAuthenticated = true
+                        needsPasswordSetup = false
+                        errorMessage = nil
+                        print("🎉 Google 登录流程完成！")
+                    } else {
+                        print("❌ 解析 Supabase 响应失败")
+                        errorMessage = "登录失败：响应格式错误"
+                    }
+                } else {
+                    print("❌ Supabase 返回错误状态码: \(httpResponse.statusCode)")
+                    if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                        errorMessage = "登录失败: \(errorResponse.message)"
+                        print("❌ 错误信息: \(errorResponse.message)")
+                    } else {
+                        errorMessage = "Google 登录失败（状态码：\(httpResponse.statusCode)）"
+                    }
+                }
+            }
+        } catch {
+            print("❌ 网络请求失败: \(error.localizedDescription)")
+            errorMessage = "登录失败：\(error.localizedDescription)"
+        }
+
+        isLoading = false
     }
 
     // MARK: - 其他方法
