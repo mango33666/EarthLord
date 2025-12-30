@@ -112,10 +112,8 @@ class AuthManager: ObservableObject {
         accessToken = UserDefaults.standard.string(forKey: "access_token")
         refreshToken = UserDefaults.standard.string(forKey: "refresh_token")
 
-        // 启动时检查会话
-        Task {
-            await checkSession()
-        }
+        // 注意：checkSession() 将在 SplashView 中调用
+        // 这样可以显示"正在检查登录状态..."的加载提示
     }
 
     // MARK: - Helper Methods
@@ -558,6 +556,12 @@ class AuthManager: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
 
             if let httpResponse = response as? HTTPURLResponse {
+                // 检查会话是否过期
+                guard handleResponse(httpResponse) else {
+                    isLoading = false
+                    return
+                }
+
                 if httpResponse.statusCode == 200 {
                     if let userResponse = try? JSONDecoder().decode(UserResponse.self, from: data) {
                         currentUser = User(
@@ -568,15 +572,17 @@ class AuthManager: ObservableObject {
                         )
                         isAuthenticated = true
                         needsPasswordSetup = false
+                        print("✅ 会话有效，用户已登录")
                     }
                 } else {
-                    // 令牌无效，清除
+                    // 其他错误，清除令牌
                     clearTokens()
                     isAuthenticated = false
                     currentUser = nil
                 }
             }
         } catch {
+            print("❌ 检查会话失败: \(error.localizedDescription)")
             clearTokens()
             isAuthenticated = false
             currentUser = nil
@@ -597,5 +603,37 @@ class AuthManager: ObservableObject {
         otpSent = false
         otpVerified = false
         errorMessage = nil
+    }
+
+    // MARK: - 会话过期处理
+
+    /// 处理会话过期（当 API 返回 401 时调用）
+    private func handleSessionExpired() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            // 清空所有认证状态
+            self.clearTokens()
+            self.isAuthenticated = false
+            self.needsPasswordSetup = false
+            self.currentUser = nil
+            self.otpSent = false
+            self.otpVerified = false
+
+            // 显示会话过期提示
+            self.errorMessage = "登录已过期，请重新登录"
+
+            print("⚠️ 会话已过期，用户已登出")
+        }
+    }
+
+    /// 验证响应状态码，处理会话过期
+    private func handleResponse(_ httpResponse: HTTPURLResponse) -> Bool {
+        if httpResponse.statusCode == 401 {
+            // 会话过期或令牌无效
+            handleSessionExpired()
+            return false
+        }
+        return true
     }
 }

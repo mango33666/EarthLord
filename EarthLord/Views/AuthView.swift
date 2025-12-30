@@ -7,53 +7,72 @@
 
 import SwiftUI
 
-// MARK: - Auth View
-/// 认证页面 - 登录/注册
+// MARK: - 认证视图
+
 struct AuthView: View {
 
-    // MARK: - Properties
+    // MARK: - 状态属性
 
     @StateObject private var authManager = AuthManager.shared
 
-    /// 当前选中的 Tab（登录/注册）
-    @State private var selectedTab: AuthTab = .login
+    /// 当前模式：登录或注册
+    @State private var authMode: AuthMode = .login
 
-    /// 是否显示忘记密码弹窗
+    /// 登录表单
+    @State private var loginEmail = ""
+    @State private var loginPassword = ""
+    @State private var showPassword = false
+
+    /// 注册表单
+    @State private var registerEmail = ""
+    @State private var otpCode = ""
+    @State private var registerPassword = ""
+    @State private var confirmPassword = ""
+    @State private var countdown = 0
+    @State private var timer: Timer?
+
+    /// UI 状态
     @State private var showForgotPassword = false
-
-    /// 是否显示 Toast 提示
     @State private var showToast = false
     @State private var toastMessage = ""
 
-    // MARK: - Body
+    // MARK: - 主视图
 
     var body: some View {
         ZStack {
-            // 背景渐变
-            backgroundGradient
+            // 深色背景
+            Color(red: 0.11, green: 0.12, blue: 0.15)
+                .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 40) {
+                VStack(spacing: 24) {
                     Spacer().frame(height: 60)
 
-                    // Logo 和标题
+                    // Logo 和标题区域
                     logoSection
 
-                    // Tab 切换器
-                    tabSwitcher
+                    // 模式切换按钮
+                    modeSwitcher
 
-                    // 内容区域
+                    // 副标题（在按钮下方，仅登录模式显示）
+                    if authMode == .login && !authManager.otpSent {
+                        subtitleSection
+                            .padding(.top, 8)
+                    }
+
+                    // 主内容区域
                     contentSection
+                        .padding(.top, 12)
 
                     // 第三方登录
-                    thirdPartyLoginSection
+                    thirdPartySection
 
                     Spacer().frame(height: 40)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 32)
             }
 
-            // 加载指示器
+            // 加载遮罩
             if authManager.isLoading {
                 loadingOverlay
             }
@@ -63,46 +82,22 @@ struct AuthView: View {
                 toastView
             }
         }
-        .ignoresSafeArea()
         .sheet(isPresented: $showForgotPassword) {
-            ForgotPasswordView()
+            ForgotPasswordSheet()
         }
     }
 
-    // MARK: - 背景渐变
-
-    private var backgroundGradient: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                Color(red: 0.08, green: 0.08, blue: 0.12),
-                Color(red: 0.05, green: 0.10, blue: 0.20),
-                Color(red: 0.03, green: 0.03, blue: 0.08)
-            ]),
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    // MARK: - Logo 区域
+    // MARK: - Logo 和标题
 
     private var logoSection: some View {
-        VStack(spacing: 16) {
-            // Logo 图标
+        VStack(spacing: 20) {
+            // Logo（橙色圆形，内含地球图标）
             ZStack {
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                ApocalypseTheme.primary,
-                                ApocalypseTheme.primary.opacity(0.7)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Color(hex: "FF6B35"))
                     .frame(width: 100, height: 100)
-                    .shadow(color: ApocalypseTheme.primary.opacity(0.5), radius: 20)
 
+                // 地球图标
                 Image(systemName: "globe.asia.australia.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.white)
@@ -111,53 +106,93 @@ struct AuthView: View {
             // 标题
             Text("地球新主")
                 .font(.system(size: 32, weight: .bold))
-                .foregroundColor(ApocalypseTheme.textPrimary)
-
-            Text("EARTH LORD")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(ApocalypseTheme.textSecondary)
-                .tracking(3)
+                .foregroundColor(.white)
         }
     }
 
-    // MARK: - Tab 切换器
+    // MARK: - 副标题
 
-    private var tabSwitcher: some View {
-        HStack(spacing: 0) {
-            // 登录 Tab
-            TabButton(
-                title: "登录",
-                isSelected: selectedTab == .login,
-                action: {
-                    withAnimation {
-                        selectedTab = .login
-                        authManager.resetState()
-                    }
-                }
-            )
+    private var subtitleSection: some View {
+        Text("征服世界，从脚下开始")
+            .font(.system(size: 14))
+            .foregroundColor(Color.white.opacity(0.6))
+    }
 
-            // 注册 Tab
-            TabButton(
-                title: "注册",
-                isSelected: selectedTab == .register,
-                action: {
-                    withAnimation {
-                        selectedTab = .register
-                        authManager.resetState()
-                    }
+    // MARK: - 模式切换器
+
+    private var modeSwitcher: some View {
+        HStack(spacing: 16) {
+            // 登录按钮
+            Button(action: {
+                withAnimation {
+                    authMode = .login
+                    authManager.resetState()
                 }
-            )
+            }) {
+                Text("登录")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(authMode == .login ? .white : Color.white.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        authMode == .login ?
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ) :
+                        LinearGradient(
+                            colors: [Color.clear, Color.clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(authMode == .login ? 0 : 0.2), lineWidth: 1)
+                    )
+            }
+
+            // 注册按钮
+            Button(action: {
+                withAnimation {
+                    authMode = .register
+                    authManager.resetState()
+                }
+            }) {
+                Text("注册")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(authMode == .register ? .white : Color.white.opacity(0.6))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        authMode == .register ?
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ) :
+                        LinearGradient(
+                            colors: [Color.clear, Color.clear],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(authMode == .register ? 0 : 0.2), lineWidth: 1)
+                    )
+            }
         }
-        .frame(maxWidth: 300)
-        .background(ApocalypseTheme.cardBackground)
-        .cornerRadius(12)
     }
 
     // MARK: - 内容区域
 
     @ViewBuilder
     private var contentSection: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             // 错误提示
             if let error = authManager.errorMessage {
                 ErrorBanner(message: error) {
@@ -165,57 +200,374 @@ struct AuthView: View {
                 }
             }
 
-            // 根据选中的 Tab 显示内容
-            if selectedTab == .login {
-                LoginTabContent(showForgotPassword: $showForgotPassword)
+            // 根据模式显示内容
+            if authMode == .login {
+                loginContent
             } else {
-                RegisterTabContent(showToast: $showToast, toastMessage: $toastMessage)
+                registerContent
             }
+        }
+    }
+
+    // MARK: - 登录内容
+
+    private var loginContent: some View {
+        VStack(spacing: 16) {
+            // 邮箱输入框
+            HStack(spacing: 12) {
+                Image(systemName: "envelope.fill")
+                    .foregroundColor(Color.white.opacity(0.3))
+                    .frame(width: 20)
+
+                TextField("", text: $loginEmail)
+                    .foregroundColor(.white)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .placeholder(when: loginEmail.isEmpty) {
+                        Text("邮箱").foregroundColor(Color.white.opacity(0.3))
+                    }
+            }
+            .padding()
+            .background(Color(white: 0.15))
+            .cornerRadius(10)
+
+            // 密码输入框
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(Color.white.opacity(0.3))
+                    .frame(width: 20)
+
+                if showPassword {
+                    TextField("", text: $loginPassword)
+                        .foregroundColor(.white)
+                        .autocapitalization(.none)
+                        .placeholder(when: loginPassword.isEmpty) {
+                            Text("密码").foregroundColor(Color.white.opacity(0.3))
+                        }
+                } else {
+                    SecureField("", text: $loginPassword, prompt: Text("密码").foregroundColor(Color.white.opacity(0.3)))
+                        .foregroundColor(.white)
+                        .autocapitalization(.none)
+                }
+
+                Button(action: { showPassword.toggle() }) {
+                    Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                        .foregroundColor(Color.white.opacity(0.3))
+                }
+            }
+            .padding()
+            .background(Color(white: 0.15))
+            .cornerRadius(10)
+
+            // 登录按钮
+            Button(action: {
+                Task {
+                    await authManager.signIn(email: loginEmail, password: loginPassword)
+                }
+            }) {
+                Text("登录")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color(white: 0.25))
+                    .cornerRadius(10)
+            }
+            .disabled(loginEmail.isEmpty || loginPassword.isEmpty)
+
+            // 忘记密码
+            Button(action: {
+                showForgotPassword = true
+            }) {
+                Text("忘记密码?")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: "FF6B35"))
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    // MARK: - 注册内容
+
+    @ViewBuilder
+    private var registerContent: some View {
+        if !authManager.otpSent {
+            // 第一步：输入邮箱
+            registerStep1
+        } else if !authManager.otpVerified {
+            // 第二步：输入验证码
+            registerStep2
+        } else if authManager.needsPasswordSetup {
+            // 第三步：设置密码
+            registerStep3
+        }
+    }
+
+    // MARK: - 注册第一步：邮箱
+
+    private var registerStep1: some View {
+        VStack(spacing: 20) {
+            // 邮箱输入框
+            HStack(spacing: 12) {
+                Image(systemName: "envelope.fill")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
+
+                TextField("邮箱", text: $registerEmail)
+                    .foregroundColor(.white)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .placeholder(when: registerEmail.isEmpty) {
+                        Text("邮箱").foregroundColor(Color.white.opacity(0.3))
+                    }
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            // 发送验证码按钮
+            Button(action: {
+                Task {
+                    await authManager.sendRegisterOTP(email: registerEmail)
+                    if authManager.otpSent {
+                        startCountdown()
+                    }
+                }
+            }) {
+                Text("发送验证码")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .opacity(isValidEmail(registerEmail) ? 1.0 : 0.5)
+            }
+            .disabled(!isValidEmail(registerEmail))
+        }
+    }
+
+    // MARK: - 注册第二步：验证码
+
+    private var registerStep2: some View {
+        VStack(spacing: 20) {
+            // 提示文本
+            VStack(spacing: 8) {
+                Text("验证码已发送至")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color.white.opacity(0.6))
+
+                Text(registerEmail)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color(hex: "FF6B35"))
+            }
+
+            // 验证码输入框
+            HStack(spacing: 12) {
+                Image(systemName: "number")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
+
+                TextField("6位验证码", text: $otpCode)
+                    .foregroundColor(.white)
+                    .keyboardType(.numberPad)
+                    .placeholder(when: otpCode.isEmpty) {
+                        Text("请输入 6 位验证码").foregroundColor(Color.white.opacity(0.3))
+                    }
+                    .onChange(of: otpCode) { newValue in
+                        if newValue.count > 6 {
+                            otpCode = String(newValue.prefix(6))
+                        }
+                    }
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            // 重发倒计时
+            if countdown > 0 {
+                Text("\(countdown)秒后可重新发送")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.4))
+            } else {
+                Button("重新发送验证码") {
+                    Task {
+                        await authManager.sendRegisterOTP(email: registerEmail)
+                        if authManager.otpSent {
+                            startCountdown()
+                        }
+                    }
+                }
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "FF6B35"))
+            }
+
+            // 验证按钮
+            Button(action: {
+                Task {
+                    await authManager.verifyRegisterOTP(email: registerEmail, code: otpCode)
+                }
+            }) {
+                Text("验证")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .opacity(otpCode.count == 6 ? 1.0 : 0.5)
+            }
+            .disabled(otpCode.count != 6)
+        }
+    }
+
+    // MARK: - 注册第三步：设置密码
+
+    private var registerStep3: some View {
+        VStack(spacing: 20) {
+            // 成功提示
+            Text("验证成功！请设置密码")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.green)
+
+            // 密码输入框
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
+
+                SecureField("密码（至少 6 位）", text: $registerPassword)
+                    .foregroundColor(.white)
+                    .autocapitalization(.none)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            // 确认密码输入框
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
+
+                SecureField("确认密码", text: $confirmPassword)
+                    .foregroundColor(.white)
+                    .autocapitalization(.none)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            // 密码强度提示
+            if !registerPassword.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: registerPassword.count >= 6 ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundColor(registerPassword.count >= 6 ? .green : .red)
+                        .font(.system(size: 12))
+
+                    Text(registerPassword.count >= 6 ? "密码长度符合要求" : "密码至少需要 6 位")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.white.opacity(0.6))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // 完成注册按钮
+            Button(action: {
+                Task {
+                    if registerPassword == confirmPassword {
+                        await authManager.completeRegistration(password: registerPassword)
+                    } else {
+                        authManager.errorMessage = "两次输入的密码不一致"
+                    }
+                }
+            }) {
+                Text("完成注册")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .opacity(registerPassword.count >= 6 && registerPassword == confirmPassword ? 1.0 : 0.5)
+            }
+            .disabled(registerPassword.count < 6 || registerPassword != confirmPassword)
         }
     }
 
     // MARK: - 第三方登录
 
-    private var thirdPartyLoginSection: some View {
-        VStack(spacing: 20) {
+    private var thirdPartySection: some View {
+        VStack(spacing: 16) {
             // 分隔线
             HStack {
                 Rectangle()
-                    .fill(ApocalypseTheme.textMuted)
+                    .fill(Color.white.opacity(0.2))
                     .frame(height: 1)
 
                 Text("或者使用以下方式登录")
-                    .font(.caption)
-                    .foregroundColor(ApocalypseTheme.textSecondary)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.4))
                     .padding(.horizontal, 12)
 
                 Rectangle()
-                    .fill(ApocalypseTheme.textMuted)
+                    .fill(Color.white.opacity(0.2))
                     .frame(height: 1)
             }
 
-            // 第三方登录按钮
-            VStack(spacing: 12) {
-                // Apple 登录按钮
-                ThirdPartyButton(
-                    icon: "apple.logo",
-                    title: "使用 Apple 登录",
-                    backgroundColor: .black,
-                    action: {
-                        showToastMessage("Apple 登录即将开放")
-                    }
-                )
+            // Apple 登录
+            Button(action: {
+                showToastMessage("Apple 登录即将开放")
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: "apple.logo")
+                        .font(.system(size: 20))
 
-                // Google 登录按钮
-                ThirdPartyButton(
-                    icon: "g.circle.fill",
-                    title: "使用 Google 登录",
-                    backgroundColor: .white,
-                    foregroundColor: .black,
-                    action: {
-                        showToastMessage("Google 登录即将开放")
-                    }
-                )
+                    Text("通过 Apple 登录")
+                        .font(.system(size: 16, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(Color.black)
+                .cornerRadius(12)
+            }
+
+            // Google 登录
+            Button(action: {
+                showToastMessage("Google 登录即将开放")
+            }) {
+                HStack(spacing: 12) {
+                    Text("G")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.black)
+
+                    Text("通过 Google 登录")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.black)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(Color.white)
+                .cornerRadius(12)
             }
         }
     }
@@ -224,7 +576,7 @@ struct AuthView: View {
 
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.5)
+            Color.black.opacity(0.6)
                 .ignoresSafeArea()
 
             VStack(spacing: 16) {
@@ -234,10 +586,10 @@ struct AuthView: View {
 
                 Text("加载中...")
                     .foregroundColor(.white)
-                    .font(.subheadline)
+                    .font(.system(size: 14))
             }
             .padding(40)
-            .background(ApocalypseTheme.cardBackground)
+            .background(Color(red: 0.2, green: 0.2, blue: 0.25))
             .cornerRadius(16)
         }
     }
@@ -249,14 +601,14 @@ struct AuthView: View {
             Spacer()
 
             Text(toastMessage)
-                .font(.subheadline)
+                .font(.system(size: 14))
                 .foregroundColor(.white)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 24)
                 .padding(.vertical, 12)
-                .background(ApocalypseTheme.cardBackground)
+                .background(Color(red: 0.2, green: 0.2, blue: 0.25))
                 .cornerRadius(8)
                 .shadow(radius: 10)
-                .padding(.bottom, 50)
+                .padding(.bottom, 80)
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .onAppear {
@@ -276,251 +628,6 @@ struct AuthView: View {
             showToast = true
         }
     }
-}
-
-// MARK: - Auth Tab Enum
-
-enum AuthTab {
-    case login
-    case register
-}
-
-// MARK: - Tab Button
-
-struct TabButton: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .foregroundColor(isSelected ? ApocalypseTheme.textPrimary : ApocalypseTheme.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    isSelected ? ApocalypseTheme.primary : Color.clear
-                )
-                .cornerRadius(12)
-        }
-    }
-}
-
-// MARK: - Login Tab Content
-
-struct LoginTabContent: View {
-    @StateObject private var authManager = AuthManager.shared
-    @State private var email = ""
-    @State private var password = ""
-
-    @Binding var showForgotPassword: Bool
-
-    var body: some View {
-        VStack(spacing: 20) {
-            // 邮箱输入
-            InputField(
-                icon: "envelope.fill",
-                placeholder: "邮箱地址",
-                text: $email,
-                keyboardType: .emailAddress
-            )
-
-            // 密码输入
-            InputField(
-                icon: "lock.fill",
-                placeholder: "密码",
-                text: $password,
-                isSecure: true
-            )
-
-            // 忘记密码
-            HStack {
-                Spacer()
-                Button("忘记密码？") {
-                    showForgotPassword = true
-                }
-                .font(.caption)
-                .foregroundColor(ApocalypseTheme.primary)
-            }
-
-            // 登录按钮
-            PrimaryButton(title: "登录") {
-                Task {
-                    await authManager.signIn(email: email, password: password)
-                }
-            }
-            .disabled(email.isEmpty || password.isEmpty)
-        }
-    }
-}
-
-// MARK: - Register Tab Content
-
-struct RegisterTabContent: View {
-    @StateObject private var authManager = AuthManager.shared
-    @State private var email = ""
-    @State private var otpCode = ""
-    @State private var password = ""
-    @State private var confirmPassword = ""
-    @State private var countdown = 0
-    @State private var timer: Timer?
-
-    @Binding var showToast: Bool
-    @Binding var toastMessage: String
-
-    var body: some View {
-        VStack(spacing: 20) {
-            // 根据状态显示不同步骤
-            if !authManager.otpSent {
-                // 第一步：输入邮箱
-                step1EmailInput
-            } else if !authManager.otpVerified {
-                // 第二步：输入验证码
-                step2OTPInput
-            } else if authManager.needsPasswordSetup {
-                // 第三步：设置密码
-                step3SetPassword
-            }
-        }
-    }
-
-    // MARK: - 第一步：邮箱输入
-
-    private var step1EmailInput: some View {
-        VStack(spacing: 20) {
-            Text("请输入您的邮箱")
-                .font(.headline)
-                .foregroundColor(ApocalypseTheme.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            InputField(
-                icon: "envelope.fill",
-                placeholder: "邮箱地址",
-                text: $email,
-                keyboardType: .emailAddress
-            )
-
-            PrimaryButton(title: "发送验证码") {
-                Task {
-                    await authManager.sendRegisterOTP(email: email)
-                    if authManager.otpSent {
-                        startCountdown()
-                    }
-                }
-            }
-            .disabled(email.isEmpty || !isValidEmail(email))
-        }
-    }
-
-    // MARK: - 第二步：验证码输入
-
-    private var step2OTPInput: some View {
-        VStack(spacing: 20) {
-            VStack(spacing: 8) {
-                Text("验证码已发送至")
-                    .font(.subheadline)
-                    .foregroundColor(ApocalypseTheme.textSecondary)
-
-                Text(email)
-                    .font(.headline)
-                    .foregroundColor(ApocalypseTheme.primary)
-            }
-
-            InputField(
-                icon: "number",
-                placeholder: "请输入 6 位验证码",
-                text: $otpCode,
-                keyboardType: .numberPad
-            )
-            .onChange(of: otpCode) { newValue in
-                // 限制为 6 位数字
-                if newValue.count > 6 {
-                    otpCode = String(newValue.prefix(6))
-                }
-            }
-
-            // 重发倒计时
-            if countdown > 0 {
-                Text("\(countdown)秒后可重新发送")
-                    .font(.caption)
-                    .foregroundColor(ApocalypseTheme.textSecondary)
-            } else {
-                Button("重新发送验证码") {
-                    Task {
-                        await authManager.sendRegisterOTP(email: email)
-                        if authManager.otpSent {
-                            startCountdown()
-                        }
-                    }
-                }
-                .font(.caption)
-                .foregroundColor(ApocalypseTheme.primary)
-            }
-
-            PrimaryButton(title: "验证") {
-                Task {
-                    await authManager.verifyRegisterOTP(email: email, code: otpCode)
-                }
-            }
-            .disabled(otpCode.count != 6)
-        }
-    }
-
-    // MARK: - 第三步：设置密码
-
-    private var step3SetPassword: some View {
-        VStack(spacing: 20) {
-            Text("设置您的密码")
-                .font(.headline)
-                .foregroundColor(ApocalypseTheme.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text("验证成功！请设置密码以完成注册")
-                .font(.caption)
-                .foregroundColor(ApocalypseTheme.success)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            InputField(
-                icon: "lock.fill",
-                placeholder: "密码（至少 6 位）",
-                text: $password,
-                isSecure: true
-            )
-
-            InputField(
-                icon: "lock.fill",
-                placeholder: "确认密码",
-                text: $confirmPassword,
-                isSecure: true
-            )
-
-            // 密码强度提示
-            if !password.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: password.count >= 6 ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundColor(password.count >= 6 ? ApocalypseTheme.success : ApocalypseTheme.danger)
-                    Text(password.count >= 6 ? "密码长度符合要求" : "密码至少需要 6 位")
-                        .font(.caption)
-                        .foregroundColor(ApocalypseTheme.textSecondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            PrimaryButton(title: "完成注册") {
-                Task {
-                    if password == confirmPassword {
-                        await authManager.completeRegistration(password: password)
-                    } else {
-                        authManager.errorMessage = "两次输入的密码不一致"
-                    }
-                }
-            }
-            .disabled(password.count < 6 || password != confirmPassword)
-        }
-    }
-
-    // MARK: - Helper Methods
 
     private func startCountdown() {
         countdown = 60
@@ -540,9 +647,16 @@ struct RegisterTabContent: View {
     }
 }
 
-// MARK: - Forgot Password View
+// MARK: - 认证模式枚举
 
-struct ForgotPasswordView: View {
+enum AuthMode {
+    case login
+    case register
+}
+
+// MARK: - 找回密码弹窗
+
+struct ForgotPasswordSheet: View {
     @StateObject private var authManager = AuthManager.shared
     @Environment(\.dismiss) private var dismiss
 
@@ -557,14 +671,20 @@ struct ForgotPasswordView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ApocalypseTheme.background
+                Color(red: 0.11, green: 0.12, blue: 0.15)
                     .ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 24) {
                         // 进度指示器
-                        ProgressIndicator(currentStep: currentStep, totalSteps: 3)
-                            .padding(.top, 20)
+                        HStack(spacing: 8) {
+                            ForEach(1...3, id: \.self) { step in
+                                Circle()
+                                    .fill(step <= currentStep ? Color(hex: "FF6B35") : Color.white.opacity(0.2))
+                                    .frame(width: 10, height: 10)
+                            }
+                        }
+                        .padding(.top, 20)
 
                         // 错误提示
                         if let error = authManager.errorMessage {
@@ -573,13 +693,13 @@ struct ForgotPasswordView: View {
                             }
                         }
 
-                        // 根据步骤显示内容
+                        // 步骤内容
                         if currentStep == 1 {
-                            step1ResetEmail
+                            forgotPasswordStep1
                         } else if currentStep == 2 {
-                            step2ResetOTP
+                            forgotPasswordStep2
                         } else {
-                            step3NewPassword
+                            forgotPasswordStep3
                         }
                     }
                     .padding(24)
@@ -592,28 +712,35 @@ struct ForgotPasswordView: View {
                     Button("取消") {
                         dismiss()
                     }
-                    .foregroundColor(ApocalypseTheme.primary)
+                    .foregroundColor(Color(hex: "FF6B35"))
                 }
             }
+            .toolbarColorScheme(.dark, for: .navigationBar)
         }
     }
 
-    // MARK: - 第一步：邮箱
-
-    private var step1ResetEmail: some View {
+    // 第一步：输入邮箱
+    private var forgotPasswordStep1: some View {
         VStack(spacing: 20) {
             Text("请输入您的注册邮箱")
-                .font(.headline)
-                .foregroundColor(ApocalypseTheme.textPrimary)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
 
-            InputField(
-                icon: "envelope.fill",
-                placeholder: "邮箱地址",
-                text: $email,
-                keyboardType: .emailAddress
-            )
+            HStack(spacing: 12) {
+                Image(systemName: "envelope.fill")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
 
-            PrimaryButton(title: "发送验证码") {
+                TextField("邮箱地址", text: $email)
+                    .foregroundColor(.white)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            Button(action: {
                 Task {
                     await authManager.sendResetOTP(email: email)
                     if authManager.otpSent {
@@ -621,31 +748,50 @@ struct ForgotPasswordView: View {
                         startCountdown()
                     }
                 }
+            }) {
+                Text("发送验证码")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
             }
             .disabled(email.isEmpty)
         }
     }
 
-    // MARK: - 第二步：验证码
-
-    private var step2ResetOTP: some View {
+    // 第二步：输入验证码
+    private var forgotPasswordStep2: some View {
         VStack(spacing: 20) {
             Text("验证码已发送至 \(email)")
-                .font(.subheadline)
-                .foregroundColor(ApocalypseTheme.textSecondary)
+                .font(.system(size: 14))
+                .foregroundColor(Color.white.opacity(0.6))
                 .multilineTextAlignment(.center)
 
-            InputField(
-                icon: "number",
-                placeholder: "请输入 6 位验证码",
-                text: $otpCode,
-                keyboardType: .numberPad
-            )
+            HStack(spacing: 12) {
+                Image(systemName: "number")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
+
+                TextField("6位验证码", text: $otpCode)
+                    .foregroundColor(.white)
+                    .keyboardType(.numberPad)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
 
             if countdown > 0 {
                 Text("\(countdown)秒后可重新发送")
-                    .font(.caption)
-                    .foregroundColor(ApocalypseTheme.textSecondary)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.white.opacity(0.4))
             } else {
                 Button("重新发送") {
                     Task {
@@ -655,44 +801,70 @@ struct ForgotPasswordView: View {
                         }
                     }
                 }
-                .foregroundColor(ApocalypseTheme.primary)
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "FF6B35"))
             }
 
-            PrimaryButton(title: "验证") {
+            Button(action: {
                 Task {
                     await authManager.verifyResetOTP(email: email, code: otpCode)
                     if authManager.otpVerified {
                         currentStep = 3
                     }
                 }
+            }) {
+                Text("验证")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
             }
             .disabled(otpCode.count != 6)
         }
     }
 
-    // MARK: - 第三步：新密码
-
-    private var step3NewPassword: some View {
+    // 第三步：设置新密码
+    private var forgotPasswordStep3: some View {
         VStack(spacing: 20) {
             Text("设置新密码")
-                .font(.headline)
-                .foregroundColor(ApocalypseTheme.textPrimary)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
 
-            InputField(
-                icon: "lock.fill",
-                placeholder: "新密码（至少 6 位）",
-                text: $newPassword,
-                isSecure: true
-            )
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
 
-            InputField(
-                icon: "lock.fill",
-                placeholder: "确认新密码",
-                text: $confirmPassword,
-                isSecure: true
-            )
+                SecureField("新密码（至少 6 位）", text: $newPassword)
+                    .foregroundColor(.white)
+                    .autocapitalization(.none)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
 
-            PrimaryButton(title: "重置密码") {
+            HStack(spacing: 12) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(Color.white.opacity(0.4))
+                    .frame(width: 24)
+
+                SecureField("确认新密码", text: $confirmPassword)
+                    .foregroundColor(.white)
+                    .autocapitalization(.none)
+            }
+            .padding()
+            .background(Color.white.opacity(0.1))
+            .cornerRadius(12)
+
+            Button(action: {
                 Task {
                     if newPassword == confirmPassword {
                         await authManager.resetPassword(newPassword: newPassword)
@@ -703,12 +875,24 @@ struct ForgotPasswordView: View {
                         authManager.errorMessage = "两次输入的密码不一致"
                     }
                 }
+            }) {
+                Text("重置密码")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B35"), Color(hex: "FF8C42")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
             }
             .disabled(newPassword.count < 6 || newPassword != confirmPassword)
         }
     }
-
-    // MARK: - Helper
 
     private func startCountdown() {
         countdown = 60
@@ -723,89 +907,7 @@ struct ForgotPasswordView: View {
     }
 }
 
-// MARK: - Reusable Components
-
-/// 输入框组件
-struct InputField: View {
-    let icon: String
-    let placeholder: String
-    @Binding var text: String
-    var isSecure: Bool = false
-    var keyboardType: UIKeyboardType = .default
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(ApocalypseTheme.textSecondary)
-                .frame(width: 20)
-
-            if isSecure {
-                SecureField(placeholder, text: $text)
-                    .foregroundColor(ApocalypseTheme.textPrimary)
-                    .autocapitalization(.none)
-            } else {
-                TextField(placeholder, text: $text)
-                    .foregroundColor(ApocalypseTheme.textPrimary)
-                    .keyboardType(keyboardType)
-                    .autocapitalization(.none)
-            }
-        }
-        .padding()
-        .background(ApocalypseTheme.cardBackground)
-        .cornerRadius(12)
-    }
-}
-
-/// 主按钮组件
-struct PrimaryButton: View {
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    LinearGradient(
-                        colors: [ApocalypseTheme.primary, ApocalypseTheme.primaryDark],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .cornerRadius(12)
-                .shadow(color: ApocalypseTheme.primary.opacity(0.3), radius: 10)
-        }
-    }
-}
-
-/// 第三方登录按钮
-struct ThirdPartyButton: View {
-    let icon: String
-    let title: String
-    let backgroundColor: Color
-    var foregroundColor: Color = .white
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                    .font(.title3)
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-            }
-            .foregroundColor(foregroundColor)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(backgroundColor)
-            .cornerRadius(12)
-        }
-    }
-}
+// MARK: - 辅助组件
 
 /// 错误横幅
 struct ErrorBanner: View {
@@ -815,43 +917,68 @@ struct ErrorBanner: View {
     var body: some View {
         HStack {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(ApocalypseTheme.danger)
+                .foregroundColor(.red)
 
             Text(message)
-                .font(.caption)
-                .foregroundColor(ApocalypseTheme.textPrimary)
+                .font(.system(size: 12))
+                .foregroundColor(.white)
                 .lineLimit(2)
 
             Spacer()
 
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .foregroundColor(ApocalypseTheme.textSecondary)
+                    .foregroundColor(Color.white.opacity(0.6))
             }
         }
         .padding()
-        .background(ApocalypseTheme.danger.opacity(0.2))
+        .background(Color.red.opacity(0.2))
         .cornerRadius(8)
     }
 }
 
-/// 进度指示器
-struct ProgressIndicator: View {
-    let currentStep: Int
-    let totalSteps: Int
+// MARK: - 扩展
 
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach(1...totalSteps, id: \.self) { step in
-                Circle()
-                    .fill(step <= currentStep ? ApocalypseTheme.primary : ApocalypseTheme.textMuted)
-                    .frame(width: 10, height: 10)
-            }
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .leading,
+        @ViewBuilder placeholder: () -> Content) -> some View {
+
+        ZStack(alignment: alignment) {
+            placeholder().opacity(shouldShow ? 1 : 0)
+            self
         }
     }
 }
 
-// MARK: - Preview
+// MARK: - 预览
 
 #Preview {
     AuthView()
