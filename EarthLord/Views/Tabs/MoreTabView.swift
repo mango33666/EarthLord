@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MoreTabView: View {
     @StateObject private var authManager = AuthManager.shared
+    @EnvironmentObject var languageManager: LanguageManager
     @State private var showDeleteConfirmation = false
     @State private var deleteConfirmationText = ""
     @State private var showDeleteAlert = false
@@ -38,6 +39,25 @@ struct MoreTabView: View {
                     } header: {
                         Text("开发工具")
                             .foregroundColor(ApocalypseTheme.textSecondary)
+                    }
+
+                    // 应用设置
+                    Section {
+                        Picker("语言", selection: $languageManager.currentLanguage) {
+                            ForEach(AppLanguage.allCases) { language in
+                                Text(language.displayName)
+                                    .tag(language)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .listRowBackground(ApocalypseTheme.cardBackground)
+                    } header: {
+                        Text("应用设置")
+                            .foregroundColor(ApocalypseTheme.textSecondary)
+                    } footer: {
+                        Text("选择应用显示语言，跟随系统将使用设备系统语言")
+                            .foregroundColor(ApocalypseTheme.textSecondary.opacity(0.8))
+                            .font(.caption)
                     }
 
                     // 账户管理

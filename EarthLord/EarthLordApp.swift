@@ -11,6 +11,8 @@ import GoogleSignIn
 
 @main
 struct EarthLordApp: App {
+    @StateObject private var languageManager = LanguageManager.shared
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -27,6 +29,8 @@ struct EarthLordApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environmentObject(languageManager)
+                .environment(\.locale, languageManager.currentLocale)
                 .onOpenURL { url in
                     print("📱 收到 URL 回调: \(url)")
                     GIDSignIn.sharedInstance.handle(url)

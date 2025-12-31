@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A6614C8B2F00772500FB2D7B /* SystemPackage in Frameworks */ = {isa = PBXBuildFile; productRef = A6614C8A2F00772500FB2D7B /* SystemPackage */; };
+		A666DD4C2F055ADE00400B22 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A666DD4B2F055ADE00400B22 /* Localizable.xcstrings */; };
 		A66D38EB2F042C6600EF4E39 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A66D38EA2F042C6600EF4E39 /* GoogleSignIn */; };
 		A66D38ED2F042C6600EF4E39 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = A66D38EC2F042C6600EF4E39 /* GoogleSignInSwift */; };
 /* End PBXBuildFile section */
@@ -30,6 +31,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A666DD4B2F055ADE00400B22 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A69E0BEE2F0033490061F967 /* EarthLord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EarthLord.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A69E0BFD2F00334A0061F967 /* EarthLordTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EarthLordTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A69E0C072F00334A0061F967 /* EarthLordUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EarthLordUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,6 +99,7 @@
 		A69E0BE52F0033490061F967 = {
 			isa = PBXGroup;
 			children = (
+				A666DD4B2F055ADE00400B22 /* Localizable.xcstrings */,
 				A69E0BF02F0033490061F967 /* EarthLord */,
 				A69E0C002F00334A0061F967 /* EarthLordTests */,
 				A69E0C0A2F00334A0061F967 /* EarthLordUITests */,
@@ -212,11 +215,12 @@
 				};
 			};
 			buildConfigurationList = A69E0BE92F0033490061F967 /* Build configuration list for PBXProject "EarthLord" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = A69E0BE52F0033490061F967;
 			minimizedProjectReferenceProxies = 1;
@@ -242,6 +246,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A666DD4C2F055ADE00400B22 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,6 +362,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -412,6 +418,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Release;
 		};
