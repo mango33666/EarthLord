@@ -161,7 +161,7 @@ struct MoreTabView: View {
                 }
             } message: {
                 if let error = authManager.errorMessage {
-                    Text(error)
+                    Text(LocalizedStringKey(error))
                 }
             }
         }

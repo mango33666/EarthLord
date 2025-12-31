@@ -195,7 +195,7 @@ struct AuthView: View {
         VStack(spacing: 20) {
             // 错误提示
             if let error = authManager.errorMessage {
-                ErrorBanner(message: error) {
+                ErrorBanner(message: LocalizedStringKey(error)) {
                     authManager.clearError()
                 }
             }
@@ -490,7 +490,7 @@ struct AuthView: View {
                     if registerPassword == confirmPassword {
                         await authManager.completeRegistration(password: registerPassword)
                     } else {
-                        authManager.errorMessage = "两次输入的密码不一致"
+                        authManager.errorMessage = String(localized: "两次输入的密码不一致")
                     }
                 }
             }) {
@@ -690,7 +690,7 @@ struct ForgotPasswordSheet: View {
 
                         // 错误提示
                         if let error = authManager.errorMessage {
-                            ErrorBanner(message: error) {
+                            ErrorBanner(message: LocalizedStringKey(error)) {
                                 authManager.clearError()
                             }
                         }
@@ -874,7 +874,7 @@ struct ForgotPasswordSheet: View {
                             dismiss()
                         }
                     } else {
-                        authManager.errorMessage = "两次输入的密码不一致"
+                        authManager.errorMessage = String(localized: "两次输入的密码不一致")
                     }
                 }
             }) {
@@ -913,7 +913,7 @@ struct ForgotPasswordSheet: View {
 
 /// 错误横幅
 struct ErrorBanner: View {
-    let message: String
+    let message: LocalizedStringKey
     let onDismiss: () -> Void
 
     var body: some View {

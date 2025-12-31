@@ -182,7 +182,7 @@ class AuthManager: ObservableObject {
                 "create_user": true
             ]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -195,11 +195,11 @@ class AuthManager: ObservableObject {
                     otpSent = true
                     errorMessage = nil
                 } else {
-                    errorMessage = "发送验证码失败（状态码：\(httpResponse.statusCode)）"
+                    errorMessage = String(localized: "发送验证码失败（状态码：\(httpResponse.statusCode)）")
                 }
             }
         } catch {
-            errorMessage = "发送验证码失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "发送验证码失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -219,7 +219,7 @@ class AuthManager: ObservableObject {
                 "type": "email"
             ]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -253,11 +253,11 @@ class AuthManager: ObservableObject {
                         errorMessage = nil
                     }
                 } else {
-                    errorMessage = "验证码错误或已过期"
+                    errorMessage = String(localized: "验证码错误或已过期")
                 }
             }
         } catch {
-            errorMessage = "验证失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "验证失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -273,7 +273,7 @@ class AuthManager: ObservableObject {
             method: "PUT",
             body: ["password": password]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -289,11 +289,11 @@ class AuthManager: ObservableObject {
                     otpVerified = false
                     errorMessage = nil
                 } else {
-                    errorMessage = "设置密码失败（状态码：\(httpResponse.statusCode)）"
+                    errorMessage = String(localized: "设置密码失败（状态码：\(httpResponse.statusCode)）")
                 }
             }
         } catch {
-            errorMessage = "设置密码失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "设置密码失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -313,7 +313,7 @@ class AuthManager: ObservableObject {
                 "password": password
             ]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -346,11 +346,11 @@ class AuthManager: ObservableObject {
                         errorMessage = nil
                     }
                 } else {
-                    errorMessage = "邮箱或密码错误"
+                    errorMessage = String(localized: "邮箱或密码错误")
                 }
             }
         } catch {
-            errorMessage = "登录失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "登录失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -368,7 +368,7 @@ class AuthManager: ObservableObject {
             endpoint: "recover",
             body: ["email": email]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -381,11 +381,11 @@ class AuthManager: ObservableObject {
                     otpSent = true
                     errorMessage = nil
                 } else {
-                    errorMessage = "发送重置邮件失败"
+                    errorMessage = String(localized: "发送重置邮件失败")
                 }
             }
         } catch {
-            errorMessage = "发送失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "发送失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -405,7 +405,7 @@ class AuthManager: ObservableObject {
                 "type": "recovery"  // 注意：类型是 recovery
             ]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -439,11 +439,11 @@ class AuthManager: ObservableObject {
                         errorMessage = nil
                     }
                 } else {
-                    errorMessage = "验证码错误或已过期"
+                    errorMessage = String(localized: "验证码错误或已过期")
                 }
             }
         } catch {
-            errorMessage = "验证失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "验证失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -459,7 +459,7 @@ class AuthManager: ObservableObject {
             method: "PUT",
             body: ["password": newPassword]
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -475,11 +475,11 @@ class AuthManager: ObservableObject {
                     otpVerified = false
                     errorMessage = nil
                 } else {
-                    errorMessage = "重置密码失败（状态码：\(httpResponse.statusCode)）"
+                    errorMessage = String(localized: "重置密码失败（状态码：\(httpResponse.statusCode)）")
                 }
             }
         } catch {
-            errorMessage = "重置密码失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "重置密码失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -490,7 +490,7 @@ class AuthManager: ObservableObject {
     /// Apple 登录（待实现）
     func signInWithApple() async {
         // TODO: 实现 Apple 登录
-        errorMessage = "Apple 登录功能开发中..."
+        errorMessage = String(localized: "Apple 登录功能开发中...")
     }
 
     /// Google 登录
@@ -503,7 +503,7 @@ class AuthManager: ObservableObject {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let rootViewController = windowScene.windows.first?.rootViewController else {
             print("❌ 无法获取根视图控制器")
-            errorMessage = "无法初始化 Google 登录"
+            errorMessage = String(localized: "无法初始化 Google 登录")
             isLoading = false
             return
         }
@@ -524,7 +524,7 @@ class AuthManager: ObservableObject {
             // 获取 ID Token
             guard let idToken = result.user.idToken?.tokenString else {
                 print("❌ 无法获取 Google ID Token")
-                errorMessage = "Google 登录失败：无法获取令牌"
+                errorMessage = String(localized: "Google 登录失败：无法获取令牌")
                 isLoading = false
                 return
             }
@@ -537,7 +537,7 @@ class AuthManager: ObservableObject {
 
         } catch {
             print("❌ Google 登录失败: \(error.localizedDescription)")
-            errorMessage = "Google 登录失败: \(error.localizedDescription)"
+            errorMessage = String(localized: "Google 登录失败: \(error.localizedDescription)")
             isLoading = false
         }
     }
@@ -554,7 +554,7 @@ class AuthManager: ObservableObject {
             ]
         ) else {
             print("❌ 创建 Supabase 请求失败")
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -596,21 +596,21 @@ class AuthManager: ObservableObject {
                         print("🎉 Google 登录流程完成！")
                     } else {
                         print("❌ 解析 Supabase 响应失败")
-                        errorMessage = "登录失败：响应格式错误"
+                        errorMessage = String(localized: "登录失败：响应格式错误")
                     }
                 } else {
                     print("❌ Supabase 返回错误状态码: \(httpResponse.statusCode)")
                     if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                        errorMessage = "登录失败: \(errorResponse.message)"
+                        errorMessage = String(localized: "登录失败: \(errorResponse.message)")
                         print("❌ 错误信息: \(errorResponse.message)")
                     } else {
-                        errorMessage = "Google 登录失败（状态码：\(httpResponse.statusCode)）"
+                        errorMessage = String(localized: "Google 登录失败（状态码：\(httpResponse.statusCode)）")
                     }
                 }
             }
         } catch {
             print("❌ 网络请求失败: \(error.localizedDescription)")
-            errorMessage = "登录失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "登录失败：\(error.localizedDescription)")
         }
 
         isLoading = false
@@ -627,7 +627,7 @@ class AuthManager: ObservableObject {
             endpoint: "logout",
             method: "POST"
         ) else {
-            errorMessage = "创建请求失败"
+            errorMessage = String(localized: "创建请求失败")
             isLoading = false
             return
         }
@@ -744,7 +744,7 @@ class AuthManager: ObservableObject {
             self.otpVerified = false
 
             // 显示会话过期提示
-            self.errorMessage = "登录已过期，请重新登录"
+            self.errorMessage = String(localized: "登录已过期，请重新登录")
 
             print("⚠️ 会话已过期，用户已登出")
         }
@@ -770,7 +770,7 @@ class AuthManager: ObservableObject {
 
         guard let accessToken = accessToken else {
             print("❌ 未找到访问令牌")
-            errorMessage = "未登录，无法删除账户"
+            errorMessage = String(localized: "未登录，无法删除账户")
             isLoading = false
             return
         }
@@ -781,7 +781,7 @@ class AuthManager: ObservableObject {
         let endpoint = "\(supabaseURL)/functions/v1/delete-account"
         guard let url = URL(string: endpoint) else {
             print("❌ URL 格式错误")
-            errorMessage = "删除账户失败：URL 错误"
+            errorMessage = String(localized: "删除账户失败：URL 错误")
             isLoading = false
             return
         }
@@ -799,7 +799,7 @@ class AuthManager: ObservableObject {
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 print("❌ 无效的响应")
-                errorMessage = "删除账户失败：无效的响应"
+                errorMessage = String(localized: "删除账户失败：无效的响应")
                 isLoading = false
                 return
             }
@@ -829,16 +829,16 @@ class AuthManager: ObservableObject {
                 // 解析错误信息
                 if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                     print("❌ 删除失败: \(errorResponse.message)")
-                    errorMessage = "删除账户失败: \(errorResponse.message)"
+                    errorMessage = String(localized: "删除账户失败: \(errorResponse.message)")
                 } else {
                     let errorText = String(data: data, encoding: .utf8) ?? "未知错误"
                     print("❌ 删除失败: \(errorText)")
-                    errorMessage = "删除账户失败（状态码：\(httpResponse.statusCode)）"
+                    errorMessage = String(localized: "删除账户失败（状态码：\(httpResponse.statusCode)）")
                 }
             }
         } catch {
             print("❌ 网络请求失败: \(error.localizedDescription)")
-            errorMessage = "删除账户失败：\(error.localizedDescription)"
+            errorMessage = String(localized: "删除账户失败：\(error.localizedDescription)")
         }
 
         isLoading = false
