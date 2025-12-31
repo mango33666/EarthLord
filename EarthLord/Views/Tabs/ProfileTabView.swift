@@ -230,9 +230,9 @@ struct ProfileTabView: View {
         }
         if let email = authManager.currentUser?.email {
             // 使用邮箱 @ 前面的部分作为用户名
-            return email.components(separatedBy: "@").first ?? "幸存者"
+            return email.components(separatedBy: "@").first ?? String(localized: "幸存者")
         }
-        return "幸存者"
+        return String(localized: "幸存者")
     }
 }
 
@@ -241,7 +241,7 @@ struct ProfileTabView: View {
 struct StatisticItem: View {
     let icon: String
     let value: String
-    let label: String
+    let label: LocalizedStringKey
     let iconColor: Color
 
     var body: some View {
@@ -266,7 +266,7 @@ struct StatisticItem: View {
 
 struct MenuRow: View {
     let icon: String
-    let title: String
+    let title: LocalizedStringKey
     let iconColor: Color
     let action: () -> Void
 
