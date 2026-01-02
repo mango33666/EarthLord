@@ -1,8 +1,15 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
-    "" : {
-
+    "《地球新主》需要定位权限来显示您在末日世界中的坐标" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Earth Lord needs location access to show your coordinates in the apocalyptic world"
+          }
+        }
+      }
     },
     "%lld秒后可重新发送" : {
       "localizations" : {
@@ -34,6 +41,16 @@
         }
       }
     },
+    "Apple 登录功能开发中..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Sign-In is under development..."
+          }
+        }
+      }
+    },
     "EARTH LORD" : {
       "localizations" : {
         "en" : {
@@ -44,12 +61,52 @@
         }
       }
     },
+    "English" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        }
+      }
+    },
     "G" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "G"
+          }
+        }
+      }
+    },
+    "Google 登录失败: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Sign-In failed: %@"
+          }
+        }
+      }
+    },
+    "Google 登录失败：无法获取令牌" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Sign-In failed: Unable to get token"
+          }
+        }
+      }
+    },
+    "Google 登录失败（状态码：%lld）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Sign-In failed (Status: %lld)"
           }
         }
       }
@@ -84,12 +141,42 @@
         }
       }
     },
+    "两次输入的密码不一致" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwords do not match"
+          }
+        }
+      }
+    },
     "个人" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Profile"
+          }
+        }
+      }
+    },
+    "关于" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        }
+      }
+    },
+    "创建请求失败" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to create request"
           }
         }
       }
@@ -114,6 +201,66 @@
         }
       }
     },
+    "删除账户失败: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to delete account: %@"
+          }
+        }
+      }
+    },
+    "删除账户失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to delete account: %@"
+          }
+        }
+      }
+    },
+    "删除账户失败：URL 错误" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to delete account: Invalid URL"
+          }
+        }
+      }
+    },
+    "删除账户失败：无效的响应" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to delete account: Invalid response"
+          }
+        }
+      }
+    },
+    "删除账户失败（状态码：%lld）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to delete account (Status: %lld)"
+          }
+        }
+      }
+    },
+    "前往设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to Settings"
+          }
+        }
+      }
+    },
     "加载中..." : {
       "localizations" : {
         "en" : {
@@ -124,12 +271,52 @@
         }
       }
     },
+    "发送失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to send: %@"
+          }
+        }
+      }
+    },
+    "发送重置邮件失败" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to send reset email"
+          }
+        }
+      }
+    },
     "发送验证码" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send Code"
+          }
+        }
+      }
+    },
+    "发送验证码失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to send verification code: %@"
+          }
+        }
+      }
+    },
+    "发送验证码失败（状态码：%lld）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to send verification code (Status: %lld)"
           }
         }
       }
@@ -214,12 +401,42 @@
         }
       }
     },
+    "帮助" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help"
+          }
+        }
+      }
+    },
+    "幸存者" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Survivor"
+          }
+        }
+      }
+    },
     "幸存者档案" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Survivor Profile"
+          }
+        }
+      }
+    },
+    "应用设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Settings"
           }
         }
       }
@@ -285,11 +502,22 @@
       }
     },
     "探索和圈占领地" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Explore and claim territories"
+          }
+        }
+      }
+    },
+    "探索距离" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exploration"
           }
         }
       }
@@ -304,12 +532,42 @@
         }
       }
     },
+    "无法初始化 Google 登录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to initialize Google Sign-In"
+          }
+        }
+      }
+    },
+    "无法获取位置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to Get Location"
+          }
+        }
+      }
+    },
     "更多" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "More"
+          }
+        }
+      }
+    },
+    "未登录，无法删除账户" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not signed in, cannot delete account"
           }
         }
       }
@@ -394,6 +652,46 @@
         }
       }
     },
+    "登录失败: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login failed: %@"
+          }
+        }
+      }
+    },
+    "登录失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login failed: %@"
+          }
+        }
+      }
+    },
+    "登录失败：响应格式错误" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login failed: Invalid response format"
+          }
+        }
+      }
+    },
+    "登录已过期，请重新登录" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Session expired, please sign in again"
+          }
+        }
+      }
+    },
     "确定" : {
       "localizations" : {
         "en" : {
@@ -444,6 +742,16 @@
         }
       }
     },
+    "简体中文" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simplified Chinese"
+          }
+        }
+      }
+    },
     "管理你的领地" : {
       "localizations" : {
         "en" : {
@@ -454,12 +762,62 @@
         }
       }
     },
+    "获取位置中..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Getting location..."
+          }
+        }
+      }
+    },
+    "设置" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "设置密码失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to set password: %@"
+          }
+        }
+      }
+    },
+    "设置密码失败（状态码：%lld）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to set password (Status: %lld)"
+          }
+        }
+      }
+    },
     "设置新密码" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Set New Password"
+          }
+        }
+      }
+    },
+    "语言" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language"
           }
         }
       }
@@ -524,6 +882,26 @@
         }
       }
     },
+    "资源点" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resources"
+          }
+        }
+      }
+    },
+    "跟随系统" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Follow System"
+          }
+        }
+      }
+    },
     "这里是分支宇宙的测试页" : {
       "localizations" : {
         "en" : {
@@ -540,6 +918,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sign Out"
+          }
+        }
+      }
+    },
+    "选择应用显示语言，跟随系统将使用设备系统语言" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select app display language. Follow System will use your device's system language"
+          }
+        }
+      }
+    },
+    "通知" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
           }
         }
       }
@@ -584,6 +982,16 @@
         }
       }
     },
+    "邮箱或密码错误" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid email or password"
+          }
+        }
+      }
+    },
     "重新发送" : {
       "localizations" : {
         "en" : {
@@ -610,6 +1018,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reset Password"
+          }
+        }
+      }
+    },
+    "重置密码失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to reset password: %@"
+          }
+        }
+      }
+    },
+    "重置密码失败（状态码：%lld）" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to reset password (Status: %lld)"
           }
         }
       }
@@ -644,6 +1072,16 @@
         }
       }
     },
+    "验证失败：%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verification failed: %@"
+          }
+        }
+      }
+    },
     "验证成功！请设置密码" : {
       "localizations" : {
         "en" : {
@@ -674,412 +1112,12 @@
         }
       }
     },
-    "English" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "English"
-          }
-        }
-      }
-    },
-    "应用设置" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App Settings"
-          }
-        }
-      }
-    },
-    "语言" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Language"
-          }
-        }
-      }
-    },
-    "跟随系统" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Follow System"
-          }
-        }
-      }
-    },
-    "简体中文" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Simplified Chinese"
-          }
-        }
-      }
-    },
-    "选择应用显示语言，跟随系统将使用设备系统语言" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select app display language. Follow System will use your device's system language"
-          }
-        }
-      }
-    },
-    "创建请求失败" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to create request"
-          }
-        }
-      }
-    },
-    "发送验证码失败（状态码：%lld）" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to send verification code (Status: %lld)"
-          }
-        }
-      }
-    },
-    "发送验证码失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to send verification code: %@"
-          }
-        }
-      }
-    },
     "验证码错误或已过期" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Verification code is incorrect or expired"
-          }
-        }
-      }
-    },
-    "验证失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verification failed: %@"
-          }
-        }
-      }
-    },
-    "设置密码失败（状态码：%lld）" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to set password (Status: %lld)"
-          }
-        }
-      }
-    },
-    "设置密码失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to set password: %@"
-          }
-        }
-      }
-    },
-    "邮箱或密码错误" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid email or password"
-          }
-        }
-      }
-    },
-    "登录失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Login failed: %@"
-          }
-        }
-      }
-    },
-    "发送重置邮件失败" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to send reset email"
-          }
-        }
-      }
-    },
-    "发送失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to send: %@"
-          }
-        }
-      }
-    },
-    "重置密码失败（状态码：%lld）" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to reset password (Status: %lld)"
-          }
-        }
-      }
-    },
-    "重置密码失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to reset password: %@"
-          }
-        }
-      }
-    },
-    "Apple 登录功能开发中..." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apple Sign-In is under development..."
-          }
-        }
-      }
-    },
-    "无法初始化 Google 登录" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unable to initialize Google Sign-In"
-          }
-        }
-      }
-    },
-    "Google 登录失败：无法获取令牌" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Google Sign-In failed: Unable to get token"
-          }
-        }
-      }
-    },
-    "Google 登录失败: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Google Sign-In failed: %@"
-          }
-        }
-      }
-    },
-    "登录失败：响应格式错误" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Login failed: Invalid response format"
-          }
-        }
-      }
-    },
-    "登录失败: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Login failed: %@"
-          }
-        }
-      }
-    },
-    "Google 登录失败（状态码：%lld）" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Google Sign-In failed (Status: %lld)"
-          }
-        }
-      }
-    },
-    "登录已过期，请重新登录" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Session expired, please sign in again"
-          }
-        }
-      }
-    },
-    "未登录，无法删除账户" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Not signed in, cannot delete account"
-          }
-        }
-      }
-    },
-    "删除账户失败：URL 错误" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to delete account: Invalid URL"
-          }
-        }
-      }
-    },
-    "删除账户失败：无效的响应" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to delete account: Invalid response"
-          }
-        }
-      }
-    },
-    "删除账户失败: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to delete account: %@"
-          }
-        }
-      }
-    },
-    "删除账户失败（状态码：%lld）" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to delete account (Status: %lld)"
-          }
-        }
-      }
-    },
-    "删除账户失败：%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to delete account: %@"
-          }
-        }
-      }
-    },
-    "两次输入的密码不一致" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Passwords do not match"
-          }
-        }
-      }
-    },
-    "设置" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Settings"
-          }
-        }
-      }
-    },
-    "通知" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notifications"
-          }
-        }
-      }
-    },
-    "帮助" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Help"
-          }
-        }
-      }
-    },
-    "关于" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "About"
-          }
-        }
-      }
-    },
-    "资源点" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resources"
-          }
-        }
-      }
-    },
-    "探索距离" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exploration"
-          }
-        }
-      }
-    },
-    "幸存者" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Survivor"
           }
         }
       }
