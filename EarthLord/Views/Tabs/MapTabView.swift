@@ -3,7 +3,7 @@
 //  EarthLord
 //
 //  地图页面
-//  显示真实地图、用户定位、末世废土风格
+//  显示真实地图、用户定位、路径追踪、末世废土风格
 //
 
 import SwiftUI
@@ -34,7 +34,10 @@ struct MapTabView: View {
             // 地图视图
             MapViewRepresentable(
                 userLocation: $userLocation,
-                hasLocatedUser: $hasLocatedUser
+                hasLocatedUser: $hasLocatedUser,
+                trackingPath: $locationManager.pathCoordinates,
+                pathUpdateVersion: locationManager.pathUpdateVersion,
+                isTracking: locationManager.isTracking
             )
             .ignoresSafeArea()
 
@@ -49,14 +52,20 @@ struct MapTabView: View {
                 permissionDeniedCard
             }
 
-            // 右下角定位按钮
+            // 右下角按钮组
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
-                    locationButton
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 100)
+                    VStack(spacing: 12) {
+                        // 圈地按钮
+                        trackingButton
+
+                        // 定位按钮
+                        locationButton
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 100)
                 }
             }
         }
@@ -131,7 +140,38 @@ struct MapTabView: View {
         }
     }
 
-    /// 定位按钮（右下角）
+    /// 圈地按钮
+    private var trackingButton: some View {
+        Button(action: {
+            toggleTracking()
+        }) {
+            HStack(spacing: 8) {
+                // 图标
+                Image(systemName: locationManager.isTracking ? "stop.fill" : "flag.fill")
+                    .font(.system(size: 16))
+
+                // 文字
+                Text(locationManager.isTracking ? "停止圈地" : "开始圈地")
+                    .font(.system(size: 14, weight: .semibold))
+
+                // 点数（追踪中才显示）
+                if locationManager.isTracking {
+                    Text("(\(locationManager.pathCoordinates.count))")
+                        .font(.system(size: 12, weight: .medium))
+                }
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(locationManager.isTracking ? Color.red : ApocalypseTheme.primary)
+                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+            )
+        }
+    }
+
+    /// 定位按钮
     private var locationButton: some View {
         Button(action: {
             recenterMap()
@@ -209,6 +249,17 @@ struct MapTabView: View {
         // 如果已授权，开始定位
         if locationManager.isAuthorized {
             locationManager.startUpdatingLocation()
+        }
+    }
+
+    /// 切换追踪状态
+    private func toggleTracking() {
+        if locationManager.isTracking {
+            // 停止追踪
+            locationManager.stopPathTracking()
+        } else {
+            // 开始追踪
+            locationManager.startPathTracking()
         }
     }
 

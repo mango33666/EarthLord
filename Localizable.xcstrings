@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "(%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(%lld)"
+          }
+        }
+      }
+    },
     "《地球新主》需要定位权限来显示您在末日世界中的坐标" : {
       "localizations" : {
         "en" : {
@@ -157,6 +167,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Profile"
+          }
+        }
+      }
+    },
+    "停止圈地" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop Claiming"
           }
         }
       }
@@ -447,6 +467,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dev Tools"
+          }
+        }
+      }
+    },
+    "开始圈地" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start Claiming"
           }
         }
       }
