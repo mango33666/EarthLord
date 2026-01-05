@@ -16,19 +16,19 @@ struct MoreTabView: View {
                 List {
                     // 开发工具
                     Section {
-                        NavigationLink(destination: SupabaseTestView()) {
+                        NavigationLink(destination: TestMenuView()) {
                             HStack(spacing: 16) {
-                                Image(systemName: "externaldrive.badge.checkmark")
+                                Image(systemName: "wrench.and.screwdriver.fill")
                                     .font(.title2)
                                     .foregroundColor(ApocalypseTheme.primary)
                                     .frame(width: 40)
 
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Supabase 连接测试")
+                                    Text("开发测试")
                                         .font(.headline)
                                         .foregroundColor(ApocalypseTheme.textPrimary)
 
-                                    Text("测试数据库连接状态")
+                                    Text("各项功能测试工具")
                                         .font(.caption)
                                         .foregroundColor(ApocalypseTheme.textSecondary)
                                 }

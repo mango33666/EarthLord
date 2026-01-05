@@ -136,6 +136,9 @@ class LocationManager: NSObject, ObservableObject {
         // 标记为追踪中
         isTracking = true
 
+        // 记录日志
+        TerritoryLogger.shared.log("开始圈地追踪", type: .info)
+
         // 启动定时器，每 2 秒采点一次
         pathUpdateTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.recordPathPoint()
@@ -148,6 +151,9 @@ class LocationManager: NSObject, ObservableObject {
     /// 停止路径追踪
     func stopPathTracking() {
         isTracking = false
+
+        // 记录日志
+        TerritoryLogger.shared.log("停止追踪，共 \(pathCoordinates.count) 个点", type: .info)
 
         // 停止定时器
         pathUpdateTimer?.invalidate()
@@ -177,20 +183,28 @@ class LocationManager: NSObject, ObservableObject {
         let newCoordinate = location.coordinate
 
         // 判断是否需要记录新点
+        var distanceFromLast: Double = 0
         if let lastCoordinate = pathCoordinates.last {
             // 计算距离
             let lastLocation = CLLocation(latitude: lastCoordinate.latitude, longitude: lastCoordinate.longitude)
             let newLocation = CLLocation(latitude: newCoordinate.latitude, longitude: newCoordinate.longitude)
-            let distance = lastLocation.distance(from: newLocation)
+            distanceFromLast = lastLocation.distance(from: newLocation)
 
             // 距离小于 10 米，不记录新点
-            if distance < 10 {
+            if distanceFromLast < 10 {
                 return
             }
         }
 
         // 记录新点
         pathCoordinates.append(newCoordinate)
+
+        // 记录日志
+        if pathCoordinates.count == 1 {
+            TerritoryLogger.shared.log("记录第 1 个点（起点）", type: .info)
+        } else {
+            TerritoryLogger.shared.log("记录第 \(pathCoordinates.count) 个点，距上点 \(String(format: "%.1f", distanceFromLast))m", type: .info)
+        }
 
         // 更新版本号，触发 SwiftUI 更新
         pathUpdateVersion += 1
@@ -203,12 +217,11 @@ class LocationManager: NSObject, ObservableObject {
 
     /// 检查路径是否形成闭环
     private func checkPathClosure() {
-        // 如果已经闭合，不再检测
+        // 如果已经闭合，不再检测（⚠️ 关键：避免重复检测）
         guard !isPathClosed else { return }
 
         // 检查点数是否足够
         guard pathCoordinates.count >= minimumPathPoints else {
-            print("🔍 闭环检测：点数不足（当前 \(pathCoordinates.count) 点，需要至少 \(minimumPathPoints) 点）")
             return
         }
 
@@ -223,13 +236,16 @@ class LocationManager: NSObject, ObservableObject {
         let currentLocation = CLLocation(latitude: currentPoint.latitude, longitude: currentPoint.longitude)
         let distance = startLocation.distance(from: currentLocation)
 
-        print("🔍 闭环检测：当前距离起点 \(String(format: "%.1f", distance)) 米")
+        // 记录距离日志（≥10个点后才记录）
+        TerritoryLogger.shared.log("距起点 \(String(format: "%.1f", distance))m (需≤30m)", type: .info)
 
         // 判断是否闭合
         if distance <= closureDistanceThreshold {
             isPathClosed = true
             pathUpdateVersion += 1  // 触发 UI 更新
-            print("✅ 闭环检测成功：距离起点 \(String(format: "%.1f", distance)) 米，小于阈值 \(closureDistanceThreshold) 米")
+
+            // 记录成功日志
+            TerritoryLogger.shared.log("闭环成功！距起点 \(String(format: "%.1f", distance))m", type: .success)
         }
     }
 
@@ -271,14 +287,19 @@ class LocationManager: NSObject, ObservableObject {
             // 严重超速，暂停追踪
             speedWarning = "速度过快（\(String(format: "%.1f", speedKmh)) km/h），已暂停追踪"
             isOverSpeed = true
+
+            // 记录错误日志
+            TerritoryLogger.shared.log("超速 \(String(format: "%.1f", speedKmh)) km/h，已停止追踪", type: .error)
+
             stopPathTracking()
-            print("⛔️ 严重超速：\(String(format: "%.1f", speedKmh)) km/h，已暂停追踪")
             return false
         } else if speedKmh > 15 {
             // 轻度超速，警告但继续追踪
             speedWarning = "移动速度过快（\(String(format: "%.1f", speedKmh)) km/h），请放慢速度"
             isOverSpeed = true
-            print("⚠️ 速度警告：\(String(format: "%.1f", speedKmh)) km/h")
+
+            // 记录警告日志
+            TerritoryLogger.shared.log("速度较快 \(String(format: "%.1f", speedKmh)) km/h", type: .warning)
 
             // 3秒后自动清除警告
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -288,7 +309,7 @@ class LocationManager: NSObject, ObservableObject {
 
             return true  // 继续记录点
         } else {
-            // 速度正常
+            // 速度正常，不记录日志（避免日志过多）
             speedWarning = nil
             isOverSpeed = false
             return true
