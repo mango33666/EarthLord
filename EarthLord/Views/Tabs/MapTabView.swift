@@ -37,13 +37,20 @@ struct MapTabView: View {
                 hasLocatedUser: $hasLocatedUser,
                 trackingPath: $locationManager.pathCoordinates,
                 pathUpdateVersion: locationManager.pathUpdateVersion,
-                isTracking: locationManager.isTracking
+                isTracking: locationManager.isTracking,
+                isPathClosed: locationManager.isPathClosed
             )
             .ignoresSafeArea()
 
-            // 顶部标题栏
-            VStack {
+            // 顶部标题栏和速度警告
+            VStack(spacing: 0) {
                 headerView
+
+                // 速度警告横幅
+                if let warning = locationManager.speedWarning {
+                    speedWarningBanner(warning: warning)
+                }
+
                 Spacer()
             }
 
@@ -235,6 +242,34 @@ struct MapTabView: View {
                 .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
         )
         .padding(.horizontal, 40)
+    }
+
+    /// 速度警告横幅
+    private func speedWarningBanner(warning: String) -> some View {
+        HStack(spacing: 12) {
+            // 警告图标
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 20))
+                .foregroundColor(.white)
+
+            // 警告文字
+            Text(warning)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.leading)
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            // 根据是否还在追踪显示不同背景色
+            RoundedRectangle(cornerRadius: 0)
+                .fill(locationManager.isTracking ? Color.orange : Color.red)
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+        )
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: locationManager.speedWarning != nil)
     }
 
     // MARK: - 辅助方法
