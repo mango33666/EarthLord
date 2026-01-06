@@ -27,6 +27,9 @@ struct MapTabView: View {
     /// 是否显示权限提示
     @State private var showPermissionAlert = false
 
+    /// 是否显示验证结果横幅
+    @State private var showValidationBanner = false
+
     // MARK: - 主视图
 
     var body: some View {
@@ -54,6 +57,11 @@ struct MapTabView: View {
                 Spacer()
             }
 
+            // 验证结果横幅
+            if showValidationBanner {
+                validationResultBanner
+            }
+
             // 权限被拒绝时显示提示卡片
             if locationManager.isDenied {
                 permissionDeniedCard
@@ -79,6 +87,23 @@ struct MapTabView: View {
         .onAppear {
             // 页面出现时请求权限和开始定位
             setupLocation()
+        }
+        .onReceive(locationManager.$isPathClosed) { isClosed in
+            // 监听闭环状态，闭环后根据验证结果显示横幅
+            if isClosed {
+                // 闭环后延迟一点点，等待验证结果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation {
+                        showValidationBanner = true
+                    }
+                    // 3 秒后自动隐藏
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        withAnimation {
+                            showValidationBanner = false
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -270,6 +295,34 @@ struct MapTabView: View {
         )
         .transition(.move(edge: .top).combined(with: .opacity))
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: locationManager.speedWarning != nil)
+    }
+
+    /// 验证结果横幅（根据验证结果显示成功或失败）
+    private var validationResultBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: locationManager.territoryValidationPassed
+                  ? "checkmark.circle.fill"
+                  : "xmark.circle.fill")
+                .font(.body)
+
+            if locationManager.territoryValidationPassed {
+                Text("圈地成功！领地面积: \(String(format: "%.0f", locationManager.calculatedArea))m²")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            } else {
+                Text(locationManager.territoryValidationError ?? "验证失败")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(locationManager.territoryValidationPassed ? Color.green : Color.red)
+        .padding(.top, 50)
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showValidationBanner)
     }
 
     // MARK: - 辅助方法
