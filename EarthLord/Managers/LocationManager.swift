@@ -180,6 +180,19 @@ class LocationManager: NSObject, ObservableObject {
         // 停止定时器
         pathUpdateTimer?.invalidate()
         pathUpdateTimer = nil
+
+        // ⚠️ 关键：重置所有验证状态，防止重复上传
+        territoryValidationPassed = false
+        territoryValidationError = nil
+        calculatedArea = 0
+        isPathClosed = false
+        speedWarning = nil
+        isOverSpeed = false
+        lastLocationTimestamp = nil
+
+        // 清除路径数据
+        pathCoordinates.removeAll()
+        pathUpdateVersion += 1
     }
 
     /// 清除路径
