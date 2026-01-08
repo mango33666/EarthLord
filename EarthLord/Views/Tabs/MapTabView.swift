@@ -55,7 +55,7 @@ struct MapTabView: View {
     @State private var territoriesVersion: Int = 0
 
     /// 当前用户 ID（使用设备标识符或测试用户 ID）
-    @State private var currentUserId: String = DeveloperMode.shared.getEffectiveUserId()
+    @State private var currentUserId: String = ""
 
     // MARK: - Day 19: 碰撞检测状态
 
@@ -139,6 +139,11 @@ struct MapTabView: View {
             }
         }
         .onAppear {
+            // 初始化用户 ID（支持开发者模式）
+            if currentUserId.isEmpty {
+                currentUserId = DeveloperMode.shared.getEffectiveUserId()
+            }
+
             // 页面出现时请求权限和开始定位
             setupLocation()
 
