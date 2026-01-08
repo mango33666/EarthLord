@@ -67,6 +67,11 @@ struct TerritoryTabView: View {
             .refreshable {
                 await refreshTerritories()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .developerModeUserChanged)) { _ in
+                // 开发者模式用户切换时自动刷新
+                TerritoryLogger.shared.log("用户切换，刷新我的领地列表", type: .info)
+                loadTerritories()
+            }
             .alert("加载失败", isPresented: $showErrorAlert) {
                 Button("确定", role: .cancel) {}
             } message: {

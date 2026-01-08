@@ -3,6 +3,7 @@ import SwiftUI
 struct MoreTabView: View {
     @StateObject private var authManager = AuthManager.shared
     @EnvironmentObject var languageManager: LanguageManager
+    @StateObject private var devMode = DeveloperMode.shared
     @State private var showDeleteConfirmation = false
     @State private var deleteConfirmationText = ""
     @State private var showDeleteAlert = false
@@ -39,6 +40,141 @@ struct MoreTabView: View {
                     } header: {
                         Text("开发工具")
                             .foregroundColor(ApocalypseTheme.textSecondary)
+                    }
+
+                    // 开发者模式
+                    Section {
+                        // 开发者模式开关
+                        Toggle(isOn: $devMode.isEnabled) {
+                            HStack(spacing: 16) {
+                                Image(systemName: "person.2.fill")
+                                    .font(.title2)
+                                    .foregroundColor(devMode.isEnabled ? .green : ApocalypseTheme.textSecondary)
+                                    .frame(width: 40)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("多用户测试模式")
+                                        .font(.headline)
+                                        .foregroundColor(ApocalypseTheme.textPrimary)
+
+                                    Text(devMode.isEnabled ? "已启用" : "已禁用")
+                                        .font(.caption)
+                                        .foregroundColor(devMode.isEnabled ? .green : ApocalypseTheme.textSecondary)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .tint(.green)
+                        .listRowBackground(ApocalypseTheme.cardBackground)
+
+                        // 当前用户显示
+                        if devMode.isEnabled {
+                            HStack(spacing: 16) {
+                                Image(systemName: "person.circle.fill")
+                                    .font(.title2)
+                                    .foregroundColor(ApocalypseTheme.info)
+                                    .frame(width: 40)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("当前用户")
+                                        .font(.headline)
+                                        .foregroundColor(ApocalypseTheme.textPrimary)
+
+                                    Text("\(devMode.getCurrentUserDisplayName())")
+                                        .font(.subheadline)
+                                        .foregroundColor(ApocalypseTheme.primary)
+
+                                    Text("ID: \(devMode.getCurrentUserIdShort())...")
+                                        .font(.caption)
+                                        .foregroundColor(ApocalypseTheme.textSecondary)
+                                }
+
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                            .listRowBackground(ApocalypseTheme.cardBackground)
+
+                            // 预设测试用户列表
+                            ForEach(devMode.presetUsers.indices, id: \.self) { index in
+                                let user = devMode.presetUsers[index]
+                                Button(action: {
+                                    devMode.switchToPresetUser(index: index)
+                                    // 发送通知，触发刷新
+                                    NotificationCenter.default.post(name: .developerModeUserChanged, object: nil)
+                                }) {
+                                    HStack(spacing: 16) {
+                                        Image(systemName: "person.fill")
+                                            .font(.title3)
+                                            .foregroundColor(devMode.testUserId == user.id ? .green : ApocalypseTheme.textSecondary)
+                                            .frame(width: 40)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(user.name)
+                                                .font(.headline)
+                                                .foregroundColor(ApocalypseTheme.textPrimary)
+
+                                            Text("ID: \(String(user.id.prefix(8)))...")
+                                                .font(.caption)
+                                                .foregroundColor(ApocalypseTheme.textSecondary)
+                                        }
+
+                                        Spacer()
+
+                                        if devMode.testUserId == user.id {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                    .padding(.vertical, 8)
+                                }
+                                .listRowBackground(ApocalypseTheme.cardBackground)
+                            }
+
+                            // 真实设备用户
+                            Button(action: {
+                                devMode.switchToRealUser()
+                                NotificationCenter.default.post(name: .developerModeUserChanged, object: nil)
+                            }) {
+                                HStack(spacing: 16) {
+                                    Image(systemName: "iphone")
+                                        .font(.title3)
+                                        .foregroundColor(devMode.testUserId == nil ? .green : ApocalypseTheme.textSecondary)
+                                        .frame(width: 40)
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("真实设备用户")
+                                            .font(.headline)
+                                            .foregroundColor(ApocalypseTheme.textPrimary)
+
+                                        Text("ID: \(String(DeviceIdentifier.shared.getUserId().prefix(8)))...")
+                                            .font(.caption)
+                                            .foregroundColor(ApocalypseTheme.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    if devMode.testUserId == nil {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                            .listRowBackground(ApocalypseTheme.cardBackground)
+                        }
+                    } header: {
+                        Text("开发者模式")
+                            .foregroundColor(ApocalypseTheme.textSecondary)
+                    } footer: {
+                        if devMode.isEnabled {
+                            Text("⚠️ 开发者模式：允许临时切换用户 ID 进行多用户场景测试。切换用户后会自动刷新地图和领地数据。")
+                                .foregroundColor(ApocalypseTheme.warning.opacity(0.8))
+                                .font(.caption)
+                        } else {
+                            Text("启用后可以临时切换测试用户，用于测试多用户碰撞检测等场景")
+                                .foregroundColor(ApocalypseTheme.textSecondary.opacity(0.8))
+                                .font(.caption)
+                        }
                     }
 
                     // 应用设置

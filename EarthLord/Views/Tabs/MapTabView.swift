@@ -54,8 +54,8 @@ struct MapTabView: View {
     /// 领地数据版本号（强制触发地图更新）
     @State private var territoriesVersion: Int = 0
 
-    /// 当前用户 ID（使用设备标识符）
-    @State private var currentUserId: String = DeviceIdentifier.shared.getUserId()
+    /// 当前用户 ID（使用设备标识符或测试用户 ID）
+    @State private var currentUserId: String = DeveloperMode.shared.getEffectiveUserId()
 
     // MARK: - Day 19: 碰撞检测状态
 
@@ -170,6 +170,13 @@ struct MapTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // 应用恢复到前台时自动刷新领地数据
             TerritoryLogger.shared.log("应用恢复前台，自动刷新数据", type: .info)
+            Task {
+                await refreshData()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .developerModeUserChanged)) { _ in
+            // 开发者模式用户切换时自动刷新
+            TerritoryLogger.shared.log("用户切换，自动刷新数据", type: .info)
             Task {
                 await refreshData()
             }
@@ -612,8 +619,9 @@ struct MapTabView: View {
         isRefreshing = true
         TerritoryLogger.shared.log("正在刷新数据...", type: .info)
 
-        // 重新获取用户 ID（虽然通常不变，但以防万一）
-        currentUserId = DeviceIdentifier.shared.getUserId()
+        // 重新获取用户 ID（支持开发者模式）
+        currentUserId = DeveloperMode.shared.getEffectiveUserId()
+        TerritoryLogger.shared.log("当前用户ID: \(String(currentUserId.prefix(8)))...", type: .info)
 
         // 重新加载领地列表
         await loadTerritories()
