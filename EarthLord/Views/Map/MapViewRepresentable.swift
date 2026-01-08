@@ -37,6 +37,9 @@ struct MapViewRepresentable: UIViewRepresentable {
     /// 已加载的领地列表
     let territories: [Territory]
 
+    /// 领地数据版本号（强制触发更新）
+    let territoriesVersion: Int
+
     /// 当前用户 ID
     let currentUserId: String?
 
@@ -299,6 +302,7 @@ struct MapViewRepresentable: UIViewRepresentable {
         isTracking: false,
         isPathClosed: false,
         territories: [],
+        territoriesVersion: 0,
         currentUserId: nil
     )
 }

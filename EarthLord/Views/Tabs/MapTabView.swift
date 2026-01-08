@@ -51,6 +51,9 @@ struct MapTabView: View {
     /// 已加载的领地列表
     @State private var territories: [Territory] = []
 
+    /// 领地数据版本号（强制触发地图更新）
+    @State private var territoriesVersion: Int = 0
+
     /// 当前用户 ID（使用设备标识符）
     @State private var currentUserId: String = DeviceIdentifier.shared.getUserId()
 
@@ -84,6 +87,7 @@ struct MapTabView: View {
                 isTracking: locationManager.isTracking,
                 isPathClosed: locationManager.isPathClosed,
                 territories: territories,
+                territoriesVersion: territoriesVersion,
                 currentUserId: currentUserId
             )
             .ignoresSafeArea()
@@ -594,7 +598,8 @@ struct MapTabView: View {
     private func loadTerritories() async {
         do {
             territories = try await territoryManager.loadAllTerritories()
-            TerritoryLogger.shared.log("加载了 \(territories.count) 个领地", type: .info)
+            territoriesVersion += 1  // 强制触发地图更新
+            TerritoryLogger.shared.log("加载了 \(territories.count) 个领地（版本: \(territoriesVersion)）", type: .info)
         } catch {
             TerritoryLogger.shared.log("加载领地失败: \(error.localizedDescription)", type: .error)
         }
