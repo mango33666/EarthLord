@@ -68,6 +68,9 @@ struct MapTabView: View {
     /// 碰撞警告级别
     @State private var collisionWarningLevel: WarningLevel = .safe
 
+    /// 是否正在刷新数据
+    @State private var isRefreshing = false
+
     // MARK: - 主视图
 
     var body: some View {
@@ -160,6 +163,13 @@ struct MapTabView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // 应用恢复到前台时自动刷新领地数据
+            TerritoryLogger.shared.log("应用恢复前台，自动刷新数据", type: .info)
+            Task {
+                await refreshData()
+            }
+        }
         .alert("上传失败", isPresented: $showErrorAlert) {
             Button("确定", role: .cancel) {}
         } message: {
@@ -195,6 +205,25 @@ struct MapTabView: View {
             }
 
             Spacer()
+
+            // 刷新按钮
+            Button(action: {
+                Task {
+                    await refreshData()
+                }
+            }) {
+                if isRefreshing {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: ApocalypseTheme.primary))
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(ApocalypseTheme.primary)
+                }
+            }
+            .disabled(isRefreshing)
+            .padding(.trailing, 12)
 
             // 权限状态指示器
             permissionStatusIndicator
@@ -569,6 +598,26 @@ struct MapTabView: View {
         } catch {
             TerritoryLogger.shared.log("加载领地失败: \(error.localizedDescription)", type: .error)
         }
+    }
+
+    /// 刷新所有数据（领地列表 + 用户ID）
+    private func refreshData() async {
+        guard !isRefreshing else { return }
+
+        isRefreshing = true
+        TerritoryLogger.shared.log("正在刷新数据...", type: .info)
+
+        // 重新获取用户 ID（虽然通常不变，但以防万一）
+        currentUserId = DeviceIdentifier.shared.getUserId()
+
+        // 重新加载领地列表
+        await loadTerritories()
+
+        // 添加短暂延迟，让用户看到刷新动画
+        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3秒
+
+        isRefreshing = false
+        TerritoryLogger.shared.log("数据刷新完成", type: .success)
     }
 
     // MARK: - Day 19: 碰撞检测方法
