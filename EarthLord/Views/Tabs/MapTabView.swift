@@ -71,6 +71,14 @@ struct MapTabView: View {
     /// 碰撞警告级别
     @State private var collisionWarningLevel: WarningLevel = .safe
 
+    // MARK: - 探索功能状态
+
+    /// 是否正在探索
+    @State private var isExploring = false
+
+    /// 是否显示探索结果
+    @State private var showExplorationResult = false
+
     // MARK: - 主视图
 
     var body: some View {
@@ -127,11 +135,17 @@ struct MapTabView: View {
                             confirmTerritoryButton
                         }
 
-                        // 圈地按钮
-                        trackingButton
+                        // 底部按钮组（圈地、定位、探索）
+                        HStack(spacing: 12) {
+                            // 圈地按钮
+                            trackingButton
 
-                        // 定位按钮
-                        locationButton
+                            // 定位按钮
+                            locationButton
+
+                            // 探索按钮
+                            explorationButton
+                        }
                     }
                     .padding(.trailing, 20)
                     .padding(.bottom, 100)
@@ -191,6 +205,9 @@ struct MapTabView: View {
             Button("确定", role: .cancel) {}
         } message: {
             Text(successMessage ?? "领地登记成功！")
+        }
+        .sheet(isPresented: $showExplorationResult) {
+            ExplorationResultView()
         }
     }
 
@@ -337,6 +354,41 @@ struct MapTabView: View {
                         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                 )
         }
+    }
+
+    /// 探索按钮
+    private var explorationButton: some View {
+        Button(action: {
+            startExploration()
+        }) {
+            HStack(spacing: 8) {
+                if isExploring {
+                    // 加载状态
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(0.8)
+
+                    Text("探索中...")
+                        .font(.system(size: 14, weight: .semibold))
+                } else {
+                    // 正常状态
+                    Image(systemName: "binoculars.fill")
+                        .font(.system(size: 16))
+
+                    Text("探索")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                Capsule()
+                    .fill(isExploring ? ApocalypseTheme.textSecondary : ApocalypseTheme.primary)
+                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+            )
+        }
+        .disabled(isExploring)
     }
 
     /// 权限被拒绝提示卡片
@@ -530,6 +582,19 @@ struct MapTabView: View {
     private func openSettings() {
         if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(settingsUrl)
+        }
+    }
+
+    /// 开始探索
+    private func startExploration() {
+        // 设置为探索中状态
+        isExploring = true
+
+        // 模拟1.5秒的搜索过程
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            // 探索完成，恢复状态并显示结果
+            isExploring = false
+            showExplorationResult = true
         }
     }
 
