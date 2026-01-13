@@ -50,6 +50,9 @@ class LocationManager: NSObject, ObservableObject {
     /// 是否超速
     @Published var isOverSpeed: Bool = false
 
+    /// 当前速度（km/h）
+    @Published var currentSpeed: Double = 0
+
     // MARK: - 验证状态属性
 
     /// 领地验证是否通过
@@ -613,10 +616,15 @@ extension LocationManager: CLLocationManagerDelegate {
         // ⚠️ 重要：更新当前位置（Timer 需要用这个）
         currentLocation = location
 
-        // 更新用户位置
+        // 更新用户位置和速度
         DispatchQueue.main.async {
             self.userLocation = location.coordinate
             self.locationError = nil  // 清除错误
+
+            // 更新当前速度（m/s 转换为 km/h）
+            if location.speed >= 0 {
+                self.currentSpeed = location.speed * 3.6  // m/s * 3.6 = km/h
+            }
         }
     }
 

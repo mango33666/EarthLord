@@ -645,59 +645,116 @@ struct MapTabView: View {
 
     /// 探索进行中的实时数据卡片
     private var explorationLiveCard: some View {
-        HStack(spacing: 16) {
-            // 距离
-            VStack(spacing: 4) {
-                Text("\(Int(explorationManager.currentDistance))")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.white)
-                Text("米")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.7))
+        let currentTier = previewTier(distance: explorationManager.currentDistance)
+        let nextTierInfo = getNextTierInfo(currentDistance: explorationManager.currentDistance)
+        let currentSpeed = locationManager.currentSpeed
+
+        return VStack(spacing: 8) {
+            // 第一行：距离 | 时速 | 时长 | 等级
+            HStack(spacing: 0) {
+                // 距离
+                VStack(spacing: 2) {
+                    Text("\(Int(explorationManager.currentDistance))")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("米")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .frame(maxWidth: .infinity)
+
+                // 分隔线
+                Rectangle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 1, height: 30)
+
+                // 时速
+                VStack(spacing: 2) {
+                    Text(String(format: "%.1f", currentSpeed))
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(currentSpeed > 30 ? .red : .white)
+                    Text("km/h")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .frame(maxWidth: .infinity)
+
+                // 分隔线
+                Rectangle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 1, height: 30)
+
+                // 时长
+                VStack(spacing: 2) {
+                    Text(formatDuration(explorationManager.currentDuration))
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("时长")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .frame(maxWidth: .infinity)
+
+                // 分隔线
+                Rectangle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 1, height: 30)
+
+                // 等级
+                VStack(spacing: 2) {
+                    Image(systemName: tierIcon(currentTier))
+                        .font(.system(size: 18))
+                        .foregroundColor(tierColorForLive(currentTier))
+                    Text(currentTier.displayName)
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(minWidth: 80)
 
-            Divider()
-                .background(Color.white.opacity(0.3))
-                .frame(height: 40)
-
-            // 时长
-            VStack(spacing: 4) {
-                Text(formatDuration(explorationManager.currentDuration))
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.white)
-                Text("时长")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.7))
+            // 第二行：下一等级提示
+            if let nextInfo = nextTierInfo {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.orange)
+                    Text("再走 \(nextInfo.remainingDistance)m 升级到")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.7))
+                    Text(nextInfo.tierName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(nextInfo.tierColor)
+                    Text("(\(nextInfo.rewardCount)件物品)")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.5))
+                }
             }
-            .frame(minWidth: 80)
-
-            Divider()
-                .background(Color.white.opacity(0.3))
-                .frame(height: 40)
-
-            // 等级预览
-            VStack(spacing: 4) {
-                let tier = previewTier(distance: explorationManager.currentDistance)
-                Image(systemName: tierIcon(tier))
-                    .font(.system(size: 24))
-                    .foregroundColor(tierColorForLive(tier))
-                Text(tier.displayName)
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.7))
-            }
-            .frame(minWidth: 80)
         }
-        .padding(16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.7))
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.75))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.orange.opacity(0.5), lineWidth: 2)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.orange.opacity(0.4), lineWidth: 1)
                 )
         )
-        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+
+    /// 获取下一等级信息
+    private func getNextTierInfo(currentDistance: Double) -> (remainingDistance: Int, tierName: String, tierColor: Color, rewardCount: Int)? {
+        if currentDistance < 200 {
+            return (Int(200 - currentDistance), "铜级", .orange, 1)
+        } else if currentDistance < 500 {
+            return (Int(500 - currentDistance), "银级", .gray, 2)
+        } else if currentDistance < 1000 {
+            return (Int(1000 - currentDistance), "金级", .yellow, 3)
+        } else if currentDistance < 2000 {
+            return (Int(2000 - currentDistance), "钻石级", .cyan, 5)
+        }
+        return nil // 已经是最高等级
     }
 
     /// 预估奖励等级（探索进行中）

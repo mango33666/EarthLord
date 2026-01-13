@@ -76,9 +76,16 @@ class InventoryManager: ObservableObject {
         guard !items.isEmpty else { return }
 
         let userId = DeviceIdentifier.shared.getUserId()
+        print("🎒 [InventoryManager] 准备添加 \(items.count) 个物品到背包")
+        print("🎒 [InventoryManager] 用户ID: \(userId)")
+
+        // 确保用户档案存在
+        try await ensureUserProfileExists(userId: userId)
 
         for obtainedItem in items {
-            // 检查背包中是否已有该物品（简化条件避免编译器超时）
+            print("🎒 [InventoryManager] 处理物品: \(obtainedItem.itemName) x\(obtainedItem.quantity)")
+
+            // 检查背包中是否已有该物品
             let matchingItems = inventoryItems.filter { item in
                 let itemIdMatches = item.itemId == obtainedItem.itemId
                 let qualityIsNil = item.quality == nil
@@ -87,12 +94,14 @@ class InventoryManager: ObservableObject {
 
             if let existingItem = matchingItems.first {
                 // 已有该物品，更新数量
+                print("🎒 [InventoryManager] 物品已存在，更新数量: \(existingItem.quantity) + \(obtainedItem.quantity)")
                 try await updateItemQuantity(
                     itemId: existingItem.id,
                     newQuantity: existingItem.quantity + obtainedItem.quantity
                 )
             } else {
                 // 没有该物品，创建新记录
+                print("🎒 [InventoryManager] 创建新物品记录...")
                 try await createNewItem(
                     userId: userId,
                     itemId: obtainedItem.itemId,
@@ -104,7 +113,63 @@ class InventoryManager: ObservableObject {
         // 重新加载背包
         try await loadInventory()
 
-        print("✅ 已添加 \(items.count) 个物品到背包")
+        print("✅ [InventoryManager] 已添加 \(items.count) 个物品到背包")
+    }
+
+    /// 确保用户档案存在于 profiles 表中
+    private func ensureUserProfileExists(userId: String) async throws {
+        // 检查用户是否已存在
+        let checkEndpoint = "\(supabaseURL)/rest/v1/profiles?id=eq.\(userId)&select=id"
+        guard let checkUrl = URL(string: checkEndpoint) else {
+            throw NSError(domain: "InventoryManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "无效的 URL"])
+        }
+
+        var checkRequest = URLRequest(url: checkUrl)
+        checkRequest.httpMethod = "GET"
+        checkRequest.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        checkRequest.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+
+        let (checkData, _) = try await URLSession.shared.data(for: checkRequest)
+
+        // 解析查询结果
+        if let jsonArray = try? JSONSerialization.jsonObject(with: checkData) as? [[String: Any]],
+           !jsonArray.isEmpty {
+            // 用户已存在
+            print("🎒 [InventoryManager] 用户档案已存在")
+            return
+        }
+
+        // 用户不存在，创建新用户
+        print("🎒 [InventoryManager] 首次使用，创建用户档案...")
+
+        let createEndpoint = "\(supabaseURL)/rest/v1/profiles"
+        guard let createUrl = URL(string: createEndpoint) else {
+            throw NSError(domain: "InventoryManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "无效的 URL"])
+        }
+
+        let username = "玩家_\(String(userId.prefix(6)).uppercased())"
+        let profileData: [String: Any] = [
+            "id": userId,
+            "username": username
+        ]
+
+        var createRequest = URLRequest(url: createUrl)
+        createRequest.httpMethod = "POST"
+        createRequest.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        createRequest.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+        createRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        createRequest.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        createRequest.httpBody = try JSONSerialization.data(withJSONObject: profileData)
+
+        let (_, response) = try await URLSession.shared.data(for: createRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            print("❌ [InventoryManager] 创建用户档案失败")
+            throw NSError(domain: "InventoryManager", code: -7, userInfo: [NSLocalizedDescriptionKey: "创建用户档案失败"])
+        }
+
+        print("✅ [InventoryManager] 用户档案创建成功: \(username)")
     }
 
     /// 移除物品（减少数量）
@@ -172,6 +237,8 @@ class InventoryManager: ObservableObject {
             "obtained_at": ISO8601DateFormatter().string(from: Date())
         ]
 
+        print("🎒 [InventoryManager] 插入数据: user_id=\(userId), item_id=\(itemId), quantity=\(quantity)")
+
         let jsonData = try JSONSerialization.data(withJSONObject: newItem)
 
         var request = URLRequest(url: url)
@@ -179,13 +246,22 @@ class InventoryManager: ObservableObject {
         request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
         request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("return=minimal", forHTTPHeaderField: "Prefer")
+        request.setValue("return=representation", forHTTPHeaderField: "Prefer")
         request.httpBody = jsonData
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 201 else {
-            throw NSError(domain: "InventoryManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "创建物品失败"])
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "InventoryManager", code: -5, userInfo: [NSLocalizedDescriptionKey: "无效的响应"])
+        }
+
+        if httpResponse.statusCode == 201 {
+            print("✅ [InventoryManager] 物品创建成功")
+        } else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "未知错误"
+            print("❌ [InventoryManager] 创建物品失败: HTTP \(httpResponse.statusCode)")
+            print("❌ [InventoryManager] 错误详情: \(errorMessage)")
+            throw NSError(domain: "InventoryManager", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "创建物品失败: \(errorMessage)"])
         }
     }
 
