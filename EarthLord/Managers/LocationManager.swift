@@ -15,6 +15,10 @@ import Combine  // ⚠️ 必需：@Published 需要这个框架
 /// GPS 定位管理器，管理用户位置和定位权限
 class LocationManager: NSObject, ObservableObject {
 
+    // MARK: - 单例
+
+    static let shared = LocationManager()
+
     // MARK: - 发布属性
 
     /// 用户当前位置坐标
@@ -211,10 +215,25 @@ class LocationManager: NSObject, ObservableObject {
     /// 记录路径点（定时器回调）
     private func recordPathPoint() {
         // 获取当前位置
-        guard let location = currentLocation else { return }
+        guard let location = currentLocation else {
+            print("⚠️ 当前位置为空，跳过记录")
+            return
+        }
+
+        // GPS 精度检测：精度太差（>100米）则跳过该点（放宽限制）
+        if location.horizontalAccuracy > 100 {
+            print("⚠️ GPS 精度较差：\(Int(location.horizontalAccuracy))m，跳过该点")
+            return
+        } else if location.horizontalAccuracy < 0 {
+            print("⚠️ GPS 精度无效：\(location.horizontalAccuracy)m，跳过该点")
+            return
+        }
+
+        print("📍 GPS 精度：\(Int(location.horizontalAccuracy))m ✓")
 
         // 速度检测：如果超速，不记录该点
         if !validateMovementSpeed(newLocation: location) {
+            print("⚠️ 速度检测未通过，跳过该点")
             return
         }
 
@@ -222,20 +241,52 @@ class LocationManager: NSObject, ObservableObject {
 
         // 判断是否需要记录新点
         var distanceFromLast: Double = 0
+        var shouldRecord = false
+
         if let lastCoordinate = pathCoordinates.last {
             // 计算距离
             let lastLocation = CLLocation(latitude: lastCoordinate.latitude, longitude: lastCoordinate.longitude)
             let newLocation = CLLocation(latitude: newCoordinate.latitude, longitude: newCoordinate.longitude)
             distanceFromLast = lastLocation.distance(from: newLocation)
 
-            // 距离小于 10 米，不记录新点
-            if distanceFromLast < 10 {
-                return
+            // 距离大于等于 3 米才记录（降低到3米）
+            if distanceFromLast >= 3 {
+                shouldRecord = true
+            } else {
+                print("📍 距上点仅 \(String(format: "%.1f", distanceFromLast))m，跳过")
             }
+        } else {
+            // 第一个点，必须记录
+            shouldRecord = true
+        }
+
+        // 如果不满足距离条件，但已经很久没记录点了，也强制记录
+        if !shouldRecord && pathCoordinates.count > 0 {
+            // 获取最后一个点的时间（如果可用）
+            if let lastTimestamp = lastLocationTimestamp {
+                let timeSinceLastPoint = location.timestamp.timeIntervalSince(lastTimestamp)
+                // 如果距离上次记录超过10秒，强制记录该点
+                if timeSinceLastPoint > 10 {
+                    shouldRecord = true
+                    print("⏰ 距上次记录已超过10秒，强制记录该点")
+                }
+            }
+        }
+
+        if !shouldRecord {
+            return
         }
 
         // 记录新点
         pathCoordinates.append(newCoordinate)
+
+        // 更新最后记录时间
+        lastLocationTimestamp = location.timestamp
+
+        print("✅ 已记录第 \(pathCoordinates.count) 个点，坐标: (\(String(format: "%.6f", newCoordinate.latitude)), \(String(format: "%.6f", newCoordinate.longitude)))")
+        if distanceFromLast > 0 {
+            print("   📏 距上点: \(String(format: "%.1f", distanceFromLast))m")
+        }
 
         // 记录日志
         if pathCoordinates.count == 1 {
@@ -297,7 +348,7 @@ class LocationManager: NSObject, ObservableObject {
 
     /// 计算路径总距离
     /// - Returns: 总距离（米）
-    private func calculateTotalPathDistance() -> Double {
+    func calculateTotalPathDistance() -> Double {
         guard pathCoordinates.count >= 2 else { return 0 }
 
         var totalDistance: Double = 0
@@ -479,7 +530,8 @@ class LocationManager: NSObject, ObservableObject {
         // 第一个点，无需检测
         guard let lastTimestamp = lastLocationTimestamp,
               let lastCoordinate = pathCoordinates.last else {
-            lastLocationTimestamp = newLocation.timestamp
+            // 第一个点，直接通过（时间戳会在 recordPathPoint 中更新）
+            print("🚗 第一个点，跳过速度检测")
             return true
         }
 
@@ -488,6 +540,7 @@ class LocationManager: NSObject, ObservableObject {
 
         // 时间差太小，不检测
         guard timeInterval > 0.5 else {
+            print("🚗 时间差太小(\(String(format: "%.1f", timeInterval))秒)，跳过速度检测")
             return true
         }
 
@@ -498,26 +551,25 @@ class LocationManager: NSObject, ObservableObject {
         // 计算速度（km/h）
         let speedKmh = (distance / timeInterval) * 3.6
 
-        print("🚗 速度检测：\(String(format: "%.1f", speedKmh)) km/h")
+        print("🚗 速度检测：\(String(format: "%.1f", speedKmh)) km/h (距离:\(String(format: "%.1f", distance))m, 时间:\(String(format: "%.1f", timeInterval))秒)")
 
-        // 更新时间戳
-        lastLocationTimestamp = newLocation.timestamp
-
-        // 速度判断
-        if speedKmh > 30 {
-            // 严重超速，暂停追踪
-            speedWarning = "速度过快（\(String(format: "%.1f", speedKmh)) km/h），已暂停追踪"
+        // 速度判断（调整为更宽容的检测，避免 GPS 噪声误判）
+        if speedKmh > 100 {
+            // 极度异常（可能是 GPS 跳点），跳过该点但不停止追踪
+            speedWarning = "速度异常（\(String(format: "%.1f", speedKmh)) km/h），跳过该点"
             isOverSpeed = true
+            print("⚠️ 速度异常：\(String(format: "%.1f", speedKmh)) km/h，跳过该点")
 
-            // 记录错误日志
-            TerritoryLogger.shared.log("超速 \(String(format: "%.1f", speedKmh)) km/h，已停止追踪", type: .error)
+            // 记录警告日志
+            TerritoryLogger.shared.log("速度异常 \(String(format: "%.1f", speedKmh)) km/h，跳过该点", type: .warning)
 
-            stopPathTracking()
+            // ⚠️ 关键改动：不调用 stopPathTracking()，只是跳过该点
             return false
-        } else if speedKmh > 15 {
-            // 轻度超速，警告但继续追踪
-            speedWarning = "移动速度过快（\(String(format: "%.1f", speedKmh)) km/h），请放慢速度"
+        } else if speedKmh > 50 {
+            // 较快速度，警告但仍记录该点（可能是骑车或跑步）
+            speedWarning = "移动速度较快（\(String(format: "%.1f", speedKmh)) km/h）"
             isOverSpeed = true
+            print("⚠️ 速度较快：\(String(format: "%.1f", speedKmh)) km/h，仍记录该点")
 
             // 记录警告日志
             TerritoryLogger.shared.log("速度较快 \(String(format: "%.1f", speedKmh)) km/h", type: .warning)

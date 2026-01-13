@@ -73,11 +73,14 @@ struct MapTabView: View {
 
     // MARK: - 探索功能状态
 
-    /// 是否正在探索
-    @State private var isExploring = false
+    /// 探索管理器
+    @StateObject private var explorationManager = ExplorationManager.shared
 
     /// 是否显示探索结果
     @State private var showExplorationResult = false
+
+    /// 探索统计数据
+    @State private var explorationStats: ExplorationStats?
 
     // MARK: - 主视图
 
@@ -122,6 +125,15 @@ struct MapTabView: View {
             // 权限被拒绝时显示提示卡片
             if locationManager.isDenied {
                 permissionDeniedCard
+            }
+
+            // 探索进行中的实时数据卡片
+            if explorationManager.isExploring {
+                VStack {
+                    Spacer()
+                    explorationLiveCard
+                        .padding(.bottom, 200)
+                }
             }
 
             // 右下角按钮组
@@ -207,7 +219,11 @@ struct MapTabView: View {
             Text(successMessage ?? "领地登记成功！")
         }
         .sheet(isPresented: $showExplorationResult) {
-            ExplorationResultView()
+            if let stats = explorationStats {
+                ExplorationResultView(stats: stats)
+            } else {
+                ExplorationResultView()
+            }
         }
     }
 
@@ -359,17 +375,31 @@ struct MapTabView: View {
     /// 探索按钮
     private var explorationButton: some View {
         Button(action: {
-            startExploration()
+            if explorationManager.isExploring {
+                // 结束探索
+                Task {
+                    await endExploration()
+                }
+            } else {
+                // 开始探索
+                startExploration()
+            }
         }) {
             HStack(spacing: 8) {
-                if isExploring {
-                    // 加载状态
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
+                if explorationManager.isExploring {
+                    // 探索中状态
+                    Image(systemName: "stop.circle.fill")
+                        .font(.system(size: 16))
 
-                    Text("探索中...")
-                        .font(.system(size: 14, weight: .semibold))
+                    VStack(spacing: 2) {
+                        Text("结束探索")
+                            .font(.system(size: 14, weight: .semibold))
+
+                        // 显示距离和时长
+                        Text("\(Int(explorationManager.currentDistance))m · \(formatDuration(explorationManager.currentDuration))")
+                            .font(.system(size: 10))
+                            .opacity(0.8)
+                    }
                 } else {
                     // 正常状态
                     Image(systemName: "binoculars.fill")
@@ -384,11 +414,10 @@ struct MapTabView: View {
             .padding(.vertical, 12)
             .background(
                 Capsule()
-                    .fill(isExploring ? ApocalypseTheme.textSecondary : ApocalypseTheme.primary)
+                    .fill(explorationManager.isExploring ? ApocalypseTheme.danger : ApocalypseTheme.primary)
                     .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
             )
         }
-        .disabled(isExploring)
     }
 
     /// 权限被拒绝提示卡片
@@ -587,14 +616,118 @@ struct MapTabView: View {
 
     /// 开始探索
     private func startExploration() {
-        // 设置为探索中状态
-        isExploring = true
+        // 调用探索管理器开始探索
+        explorationManager.startExploration()
+        print("✅ 用户点击【探索】按钮，探索已开始")
+    }
 
-        // 模拟1.5秒的搜索过程
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            // 探索完成，恢复状态并显示结果
-            isExploring = false
+    private func endExploration() async {
+        print("🔍 [MapTabView] 用户点击【结束探索】按钮")
+        print("🔍 [MapTabView] isExploring = \(explorationManager.isExploring)")
+
+        // 调用探索管理器结束探索
+        if let stats = await explorationManager.stopExploration() {
+            explorationStats = stats
+            print("🔍 [MapTabView] 收到探索数据: 距离=\(stats.currentDistance)m, 奖励=\(stats.rewardTier?.displayName ?? "无")")
             showExplorationResult = true
+            print("✅ [MapTabView] 探索已结束，准备显示结果页面")
+        } else {
+            print("❌ [MapTabView] stopExploration() 返回 nil")
+        }
+    }
+
+    /// 格式化时长显示
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return "\(minutes):\(String(format: "%02d", seconds))"
+    }
+
+    /// 探索进行中的实时数据卡片
+    private var explorationLiveCard: some View {
+        HStack(spacing: 16) {
+            // 距离
+            VStack(spacing: 4) {
+                Text("\(Int(explorationManager.currentDistance))")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                Text("米")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .frame(minWidth: 80)
+
+            Divider()
+                .background(Color.white.opacity(0.3))
+                .frame(height: 40)
+
+            // 时长
+            VStack(spacing: 4) {
+                Text(formatDuration(explorationManager.currentDuration))
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                Text("时长")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .frame(minWidth: 80)
+
+            Divider()
+                .background(Color.white.opacity(0.3))
+                .frame(height: 40)
+
+            // 等级预览
+            VStack(spacing: 4) {
+                let tier = previewTier(distance: explorationManager.currentDistance)
+                Image(systemName: tierIcon(tier))
+                    .font(.system(size: 24))
+                    .foregroundColor(tierColorForLive(tier))
+                Text(tier.displayName)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .frame(minWidth: 80)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.orange.opacity(0.5), lineWidth: 2)
+                )
+        )
+        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+    }
+
+    /// 预估奖励等级（探索进行中）
+    private func previewTier(distance: Double) -> RewardTier {
+        if distance < 200 { return .none }
+        else if distance < 500 { return .bronze }
+        else if distance < 1000 { return .silver }
+        else if distance < 2000 { return .gold }
+        else { return .diamond }
+    }
+
+    /// 获取等级图标
+    private func tierIcon(_ tier: RewardTier) -> String {
+        switch tier {
+        case .none: return "circle"
+        case .bronze: return "medal.fill"
+        case .silver: return "medal.fill"
+        case .gold: return "medal.fill"
+        case .diamond: return "gem.fill"
+        }
+    }
+
+    /// 获取等级颜色（实时卡片用）
+    private func tierColorForLive(_ tier: RewardTier) -> Color {
+        switch tier {
+        case .none: return .gray
+        case .bronze: return .orange
+        case .silver: return .gray
+        case .gold: return .yellow
+        case .diamond: return .cyan
         }
     }
 

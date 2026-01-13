@@ -95,7 +95,7 @@ struct ItemDefinition: Identifiable, Codable {
 }
 
 /// 背包物品实例
-struct InventoryItem: Identifiable, Codable {
+struct InventoryItem: Identifiable, Codable, Equatable {
     let id: String
     let itemId: String          // 物品定义ID
     var quantity: Int           // 数量
@@ -106,22 +106,59 @@ struct InventoryItem: Identifiable, Codable {
 // MARK: - 探索结果数据模型
 
 /// 探索统计
+// MARK: - 奖励等级
+
+/// 奖励等级枚举
+enum RewardTier: String, Codable {
+    case none = "none"
+    case bronze = "bronze"
+    case silver = "silver"
+    case gold = "gold"
+    case diamond = "diamond"
+
+    var displayName: String {
+        switch self {
+        case .none: return "无奖励"
+        case .bronze: return "铜级"
+        case .silver: return "银级"
+        case .gold: return "金级"
+        case .diamond: return "钻石级"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .none: return ""
+        case .bronze: return "🥉"
+        case .silver: return "🥈"
+        case .gold: return "🥇"
+        case .diamond: return "💎"
+        }
+    }
+}
+
+// MARK: - 探索统计数据模型
+
 struct ExplorationStats: Codable {
     // 距离统计
     let currentDistance: Double     // 本次行走距离（米）
     let totalDistance: Double       // 累计行走距离（米）
     let distanceRank: Int           // 距离排名
 
-    // 面积统计
-    let currentArea: Double         // 本次探索面积（平方米）
-    let totalArea: Double           // 累计探索面积（平方米）
-    let areaRank: Int               // 面积排名
-
     // 时长统计
     let duration: TimeInterval      // 探索时长（秒）
 
     // 获得物品
     let obtainedItems: [ObtainedItem]
+
+    // 奖励等级
+    let rewardTier: RewardTier?
+
+    // 验证地点数（GPS记录点数）
+    let validationPoints: Int
+
+    // 获得经验值
+    let earnedExperience: Int
 }
 
 /// 获得的物品
@@ -471,11 +508,6 @@ class MockExplorationData {
             totalDistance: 15000.0,         // 累计15公里
             distanceRank: 42,               // 排名42
 
-            // 面积统计
-            currentArea: 50000.0,           // 本次5万平方米（0.05平方公里）
-            totalArea: 250000.0,            // 累计25万平方米（0.25平方公里）
-            areaRank: 38,                   // 排名38
-
             // 时长
             duration: 1800.0,               // 30分钟
 
@@ -486,7 +518,16 @@ class MockExplorationData {
                 ObtainedItem(itemId: "item_food_001", itemName: "罐头食品", quantity: 2),
                 ObtainedItem(itemId: "item_medical_001", itemName: "绷带", quantity: 4),
                 ObtainedItem(itemId: "item_material_003", itemName: "布料", quantity: 8)
-            ]
+            ],
+
+            // 奖励等级
+            rewardTier: .diamond,
+
+            // 验证地点数
+            validationPoints: 124,
+
+            // 获得经验值
+            earnedExperience: 75
         )
     }()
 

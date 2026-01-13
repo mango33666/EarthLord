@@ -14,7 +14,10 @@ struct BackpackView: View {
 
     // MARK: - 状态属性
 
-    /// 测试数据
+    /// 背包管理器
+    @StateObject private var inventoryManager = InventoryManager.shared
+
+    /// 测试数据（用于物品定义）
     private let mockData = MockExplorationData.shared
 
     /// 所有物品列表（带定义）
@@ -35,6 +38,9 @@ struct BackpackView: View {
     /// 当前使用容量
     @State private var currentCapacity: Double = 0.0
 
+    /// 是否正在加载
+    @State private var isLoading: Bool = false
+
     // MARK: - 主视图
 
     var body: some View {
@@ -43,24 +49,31 @@ struct BackpackView: View {
             ApocalypseTheme.background
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // 容量状态卡
-                capacityCard
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
+            if isLoading {
+                // 加载指示器
+                ProgressView("加载背包...")
+                    .tint(.orange)
+                    .foregroundColor(.white)
+            } else {
+                VStack(spacing: 0) {
+                    // 容量状态卡
+                    capacityCard
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
 
-                // 搜索框
-                searchBar
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    // 搜索框
+                    searchBar
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
 
-                // 筛选工具栏
-                filterToolbar
-                    .padding(.top, 12)
+                    // 筛选工具栏
+                    filterToolbar
+                        .padding(.top, 12)
 
-                // 物品列表
-                itemListView
-                    .padding(.top, 12)
+                    // 物品列表
+                    itemListView
+                        .padding(.top, 12)
+                }
             }
         }
         .navigationTitle("背包")
@@ -70,6 +83,10 @@ struct BackpackView: View {
         .toolbarBackground(ApocalypseTheme.cardBackground, for: .navigationBar)
         .onAppear {
             loadItems()
+        }
+        .onChange(of: inventoryManager.inventoryItems) { _, _ in
+            // 当背包物品变化时重新加载
+            processInventoryItems()
         }
     }
 
@@ -147,7 +164,7 @@ struct BackpackView: View {
             TextField("搜索物品名称...", text: $searchText)
                 .font(.system(size: 15))
                 .foregroundColor(ApocalypseTheme.textPrimary)
-                .onChange(of: searchText) { _ in
+                .onChange(of: searchText) {
                     applyFilter()
                 }
 
@@ -404,8 +421,31 @@ struct BackpackView: View {
 
     /// 加载物品数据
     private func loadItems() {
-        // 从 MockExplorationData 加载物品
-        allItems = mockData.mockInventoryItems.compactMap { inventoryItem in
+        isLoading = true
+
+        Task {
+            do {
+                // 从数据库加载背包物品
+                try await inventoryManager.loadInventory()
+
+                // 处理物品数据
+                await MainActor.run {
+                    processInventoryItems()
+                    isLoading = false
+                }
+            } catch {
+                print("❌ 加载背包失败：\(error.localizedDescription)")
+                await MainActor.run {
+                    isLoading = false
+                }
+            }
+        }
+    }
+
+    /// 处理背包物品（从 InventoryManager 加载）
+    private func processInventoryItems() {
+        // 将 InventoryItem 和 ItemDefinition 关联
+        allItems = inventoryManager.inventoryItems.compactMap { inventoryItem in
             guard let definition = mockData.getItemDefinition(by: inventoryItem.itemId) else {
                 return nil
             }
@@ -413,7 +453,9 @@ struct BackpackView: View {
         }
 
         // 计算总容量
-        currentCapacity = mockData.calculateTotalVolume()
+        currentCapacity = allItems.reduce(0) { total, pair in
+            total + (pair.definition.volume * Double(pair.item.quantity))
+        }
 
         // 应用筛选
         applyFilter()
