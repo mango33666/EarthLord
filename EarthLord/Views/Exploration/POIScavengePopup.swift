@@ -18,6 +18,9 @@ struct POIScavengePopup: View {
     /// POI 信息
     let poi: POI
 
+    /// 与 POI 的距离（米）
+    let distance: Double
+
     /// 点击搜刮回调
     let onScavenge: () -> Void
 
@@ -28,62 +31,109 @@ struct POIScavengePopup: View {
 
     @State private var isAnimating = false
 
+    // MARK: - 计算属性
+
+    /// 危险等级（1-5，基于POI类型）
+    private var dangerLevel: Int {
+        switch poi.category {
+        case .hospital, .pharmacy:
+            return 2  // 医疗设施较安全
+        case .supermarket, .convenience, .store:
+            return 3  // 商店中等风险
+        case .gasStation:
+            return 4  // 加油站有爆炸风险
+        case .restaurant, .cafe:
+            return 1  // 餐饮场所较安全
+        case .other:
+            return 3  // 未知风险
+        }
+    }
+
     // MARK: - 主视图
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            // 弹窗卡片
-            VStack(spacing: 16) {
-                // 顶部图标和标题
-                VStack(spacing: 8) {
-                    // POI 图标
-                    Text(poi.category.icon)
-                        .font(.system(size: 60))
-                        .scaleEffect(isAnimating ? 1.1 : 1.0)
-                        .animation(
-                            .easeInOut(duration: 0.8)
-                            .repeatForever(autoreverses: true),
-                            value: isAnimating
-                        )
+            // 弹窗卡片（底部sheet样式）
+            VStack(spacing: 0) {
+                // 顶部拖动指示条
+                RoundedRectangle(cornerRadius: 2.5)
+                    .fill(Color.white.opacity(0.3))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 10)
+                    .padding(.bottom, 16)
 
-                    // 废墟标题
-                    Text("发现废墟")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(ApocalypseTheme.textSecondary)
+                // 主内容区域
+                HStack(alignment: .top, spacing: 12) {
+                    // 左侧：POI 图标
+                    ZStack {
+                        Circle()
+                            .fill(ApocalypseTheme.primary.opacity(0.2))
+                            .frame(width: 60, height: 60)
 
-                    // POI 名称
-                    Text(poi.name)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(ApocalypseTheme.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
+                        Text(poi.category.icon)
+                            .font(.system(size: 28))
+                    }
+                    .scaleEffect(isAnimating ? 1.05 : 1.0)
+                    .animation(
+                        .easeInOut(duration: 0.8)
+                        .repeatForever(autoreverses: true),
+                        value: isAnimating
+                    )
 
-                    // 类型标签
-                    Text(poi.category.wastelandName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill(ApocalypseTheme.primary.opacity(0.8))
-                        )
+                    // 中间：信息区域
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("发现废墟")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(ApocalypseTheme.textSecondary)
+
+                        Text(poi.name)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(ApocalypseTheme.textPrimary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    // 右侧：距离显示
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(Int(distance))")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(ApocalypseTheme.primary)
+                        Text("米")
+                            .font(.system(size: 12))
+                            .foregroundColor(ApocalypseTheme.textSecondary)
+                    }
                 }
-                .padding(.top, 20)
+                .padding(.horizontal, 20)
 
                 // 分隔线
                 Rectangle()
                     .fill(ApocalypseTheme.textSecondary.opacity(0.2))
                     .frame(height: 1)
                     .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
 
-                // 提示文字
-                Text("这里可能藏有物资，是否搜刮？")
-                    .font(.system(size: 14))
-                    .foregroundColor(ApocalypseTheme.textSecondary)
-                    .multilineTextAlignment(.center)
+                // 危险等级
+                HStack {
+                    Text("危险等级")
+                        .font(.system(size: 14))
+                        .foregroundColor(ApocalypseTheme.textSecondary)
+
+                    Spacer()
+
+                    // 危险等级指示器（5个三角形）
+                    HStack(spacing: 4) {
+                        ForEach(1...5, id: \.self) { level in
+                            Image(systemName: level <= dangerLevel ? "exclamationmark.triangle.fill" : "exclamationmark.triangle")
+                                .font(.system(size: 14))
+                                .foregroundColor(level <= dangerLevel ? dangerColor(for: level) : ApocalypseTheme.textSecondary.opacity(0.3))
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
 
                 // 按钮组
                 HStack(spacing: 12) {
@@ -103,8 +153,8 @@ struct POIScavengePopup: View {
                     // 立即搜刮
                     Button(action: onScavenge) {
                         HStack(spacing: 8) {
-                            Image(systemName: "hand.raised.fingers.spread.fill")
-                                .font(.system(size: 16))
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 16, weight: .semibold))
 
                             Text("立即搜刮")
                                 .font(.system(size: 16, weight: .bold))
@@ -114,26 +164,18 @@ struct POIScavengePopup: View {
                         .frame(height: 48)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [ApocalypseTheme.primary, ApocalypseTheme.primary.opacity(0.8)],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
+                                .fill(ApocalypseTheme.primary)
                         )
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(.bottom, 34)
             }
             .background(
                 RoundedRectangle(cornerRadius: 24)
                     .fill(ApocalypseTheme.cardBackground)
                     .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: -10)
             )
-            .padding(.horizontal, 20)
-            .padding(.bottom, 100)
         }
         .background(
             Color.black.opacity(0.4)
@@ -147,6 +189,24 @@ struct POIScavengePopup: View {
             isAnimating = true
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - 辅助方法
+
+    /// 根据危险等级返回颜色
+    private func dangerColor(for level: Int) -> Color {
+        switch level {
+        case 1:
+            return .green
+        case 2:
+            return .yellow
+        case 3:
+            return .orange
+        case 4, 5:
+            return .red
+        default:
+            return .gray
+        }
     }
 }
 
@@ -163,6 +223,7 @@ struct POIScavengePopup: View {
                 coordinate: .init(latitude: 0, longitude: 0),
                 category: .supermarket
             ),
+            distance: 27,
             onScavenge: { print("搜刮") },
             onDismiss: { print("关闭") }
         )

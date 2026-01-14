@@ -160,6 +160,7 @@ struct MapTabView: View {
                let poi = explorationManager.currentApproachingPOI {
                 POIScavengePopup(
                     poi: poi,
+                    distance: explorationManager.currentApproachingDistance,
                     onScavenge: { handleScavenge(poi) },
                     onDismiss: { explorationManager.dismissScavengePopup() }
                 )

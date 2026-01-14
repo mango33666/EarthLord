@@ -41,6 +41,9 @@ class ExplorationManager: ObservableObject {
     /// 当前接近的 POI（用于弹窗）
     @Published var currentApproachingPOI: POI?
 
+    /// 当前接近 POI 的距离（米）
+    @Published var currentApproachingDistance: Double = 0
+
     /// 是否显示搜刮弹窗
     @Published var showScavengePopup: Bool = false
 
@@ -202,7 +205,9 @@ class ExplorationManager: ObservableObject {
         locationManager.stopPathTracking()
         stopDurationTimer()
         stopSpeedCheckTimer()
+        PlayerLocationManager.shared.stopPeriodicReporting()  // 停止位置上报并标记离线
         print("   ✓ GPS 追踪已停止")
+        print("   ✓ 位置上报已停止")
 
         // 3. 生成奖励
         print("   🎁 正在生成奖励...")
@@ -282,6 +287,7 @@ class ExplorationManager: ObservableObject {
         locationManager.stopPathTracking()
         stopDurationTimer()
         stopSpeedCheckTimer()
+        PlayerLocationManager.shared.stopPeriodicReporting()
 
         isExploring = false
         startTime = nil
@@ -304,6 +310,7 @@ class ExplorationManager: ObservableObject {
         locationManager.stopPathTracking()
         stopDurationTimer()
         stopSpeedCheckTimer()
+        PlayerLocationManager.shared.stopPeriodicReporting()
 
         let finalDistance = locationManager.calculateTotalPathDistance()
         let finalDuration = Date().timeIntervalSince(startTime ?? Date())
@@ -568,9 +575,17 @@ class ExplorationManager: ObservableObject {
         print("🔍 [POI] 开始搜索附近 POI...")
         print("   📍 用户位置: (\(String(format: "%.6f", location.latitude)), \(String(format: "%.6f", location.longitude)))")
 
+        // 1. 上报位置并获取附近玩家密度
+        let nearbyCount = await PlayerLocationManager.shared.reportLocationAndGetDensity(location: location)
+        let densityLevel = DensityLevel.fromCount(nearbyCount)
+        let maxPOIs = densityLevel.maxPOICount
+
+        print("👥 [POI] 附近玩家: \(nearbyCount) 人 (\(densityLevel.icon) \(densityLevel.rawValue))")
+        print("   📊 POI 数量上限: \(maxPOIs) 个")
+
         do {
-            // 搜索 POI
-            let pois = try await POISearchManager.shared.searchNearbyPOIs(center: location)
+            // 2. 搜索 POI（传入动态数量限制）
+            let pois = try await POISearchManager.shared.searchNearbyPOIs(center: location, maxCount: maxPOIs)
             nearbyPOIs = pois
 
             print("✅ [POI] 找到 \(pois.count) 个 POI:")
@@ -583,6 +598,9 @@ class ExplorationManager: ObservableObject {
             if pois.count > 5 {
                 print("   ... 还有 \(pois.count - 5) 个 POI")
             }
+
+            // 3. 启动周期性位置上报
+            PlayerLocationManager.shared.startPeriodicReporting()
 
             // 设置地理围栏（作为备用检测机制）
             setupGeofences(for: pois)
@@ -694,7 +712,7 @@ class ExplorationManager: ObservableObject {
             // 如果在范围内（100米）
             if distance <= geofenceRadius {
                 print("🎯 [POI] ✅ 检测到接近！\(poi.name)（距离: \(Int(distance))m ≤ \(Int(geofenceRadius))m）")
-                showPOIScavengePopup(poi: poi)
+                showPOIScavengePopup(poi: poi, distance: distance)
                 return
             }
         }
@@ -719,10 +737,16 @@ class ExplorationManager: ObservableObject {
             return
         }
 
-        // 找到第一个未搜刮的 POI
+        // 找到第一个未搜刮的 POI 并计算距离
         if let poi = nearbyPOIs.first(where: { !scavengedPOIIds.contains($0.id) }) {
-            print("🧪 [DEBUG] 强制触发搜刮: \(poi.name)")
-            showPOIScavengePopup(poi: poi)
+            var distance: Double = 50  // 默认距离
+            if let userLocation = locationManager.userLocation {
+                let userCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+                let poiLocation = CLLocation(latitude: poi.coordinate.latitude, longitude: poi.coordinate.longitude)
+                distance = userCLLocation.distance(from: poiLocation)
+            }
+            print("🧪 [DEBUG] 强制触发搜刮: \(poi.name)（距离: \(Int(distance))m）")
+            showPOIScavengePopup(poi: poi, distance: distance)
         } else {
             print("❌ [DEBUG] 所有 POI 都已搜刮")
         }
@@ -745,8 +769,16 @@ class ExplorationManager: ObservableObject {
             return
         }
 
+        // 计算距离
+        var distance: Double = geofenceRadius  // 默认为地理围栏半径
+        if let userLocation = locationManager.userLocation {
+            let userCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+            let poiLocation = CLLocation(latitude: poi.coordinate.latitude, longitude: poi.coordinate.longitude)
+            distance = userCLLocation.distance(from: poiLocation)
+        }
+
         // 显示搜刮弹窗
-        showPOIScavengePopup(poi: poi)
+        showPOIScavengePopup(poi: poi, distance: distance)
     }
 
     /// 手动检测 POI 接近（位置更新时触发，作为定时器的补充）
@@ -774,20 +806,21 @@ class ExplorationManager: ObservableObject {
             // 如果在范围内（100米）
             if distance <= geofenceRadius {
                 print("📍 [POI] 位置更新检测到接近: \(poi.name)（距离: \(Int(distance))m）")
-                showPOIScavengePopup(poi: poi)
+                showPOIScavengePopup(poi: poi, distance: distance)
                 return  // 一次只显示一个弹窗
             }
         }
     }
 
     /// 显示 POI 搜刮弹窗
-    private func showPOIScavengePopup(poi: POI) {
+    private func showPOIScavengePopup(poi: POI, distance: Double) {
         // 防止重复显示
         guard currentApproachingPOI?.id != poi.id else { return }
 
-        print("🎯 [POI] 进入 POI 范围: \(poi.name)")
+        print("🎯 [POI] 进入 POI 范围: \(poi.name)（距离: \(Int(distance))m）")
 
         currentApproachingPOI = poi
+        currentApproachingDistance = distance
         showScavengePopup = true
     }
 
@@ -795,6 +828,7 @@ class ExplorationManager: ObservableObject {
     func dismissScavengePopup() {
         showScavengePopup = false
         currentApproachingPOI = nil
+        currentApproachingDistance = 0
     }
 
     /// 标记 POI 为已搜刮

@@ -52,13 +52,16 @@ class POISearchManager {
     /// - Parameters:
     ///   - center: 搜索中心点
     ///   - radius: 搜索半径（米），默认 1km
+    ///   - maxCount: 最大返回数量，默认 20（根据玩家密度动态调整）
     /// - Returns: POI 列表
-    func searchNearbyPOIs(center: CLLocationCoordinate2D, radius: Double? = nil) async throws -> [POI] {
+    func searchNearbyPOIs(center: CLLocationCoordinate2D, radius: Double? = nil, maxCount: Int = 20) async throws -> [POI] {
         let searchRadius = radius ?? defaultRadius
+        let effectiveMaxCount = min(maxCount, maxTotalPOIs)  // 不超过地理围栏限制
 
         print("🔍 [POISearchManager] 开始搜索附近 POI...")
         print("   📍 中心点: (\(String(format: "%.6f", center.latitude)), \(String(format: "%.6f", center.longitude)))")
         print("   📏 半径: \(Int(searchRadius))m")
+        print("   📊 数量上限: \(effectiveMaxCount) 个")
 
         var allPOIs: [POI] = []
 
@@ -93,8 +96,8 @@ class POISearchManager {
         // 按距离排序
         let sortedPOIs = sortByDistance(pois: uniquePOIs, from: center)
 
-        // 限制数量（iOS 地理围栏最多 20 个）
-        let limitedPOIs = Array(sortedPOIs.prefix(maxTotalPOIs))
+        // 限制数量（根据密度动态调整，最多不超过地理围栏限制）
+        let limitedPOIs = Array(sortedPOIs.prefix(effectiveMaxCount))
 
         print("✅ [POISearchManager] 搜索完成，共找到 \(limitedPOIs.count) 个 POI")
         for poi in limitedPOIs {
