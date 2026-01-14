@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 // MARK: - POI详情视图
 
@@ -38,11 +39,6 @@ struct POIDetailView: View {
 
                     // 内容区域
                     VStack(spacing: 16) {
-                        // 描述文字
-                        if !poi.description.isEmpty {
-                            descriptionSection
-                        }
-
                         // 信息区域
                         informationSection
 
@@ -68,7 +64,7 @@ struct POIDetailView: View {
 
     /// 顶部大图区域
     private var headerImageSection: some View {
-        let poiStyle = POIStyle.style(for: poi.type)
+        let poiStyle = POIStyle.style(for: poi.category)
 
         return GeometryReader { geometry in
             ZStack(alignment: .bottom) {
@@ -102,7 +98,7 @@ struct POIDetailView: View {
                         Image(systemName: poiStyle.iconName)
                             .font(.system(size: 14))
 
-                        Text(poi.type.rawValue)
+                        Text(poi.category.wastelandName)
                             .font(.system(size: 15, weight: .medium))
                     }
                     .foregroundColor(.white.opacity(0.9))
@@ -123,30 +119,6 @@ struct POIDetailView: View {
             .frame(height: geometry.size.width * 0.8)
         }
         .frame(height: 300)
-    }
-
-    /// 描述文字区域
-    private var descriptionSection: some View {
-        ELCard {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(ApocalypseTheme.info)
-
-                    Text("地点简介")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(ApocalypseTheme.textPrimary)
-                }
-
-                Text(poi.description)
-                    .font(.system(size: 14))
-                    .foregroundColor(ApocalypseTheme.textSecondary)
-                    .lineSpacing(4)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-        }
     }
 
     /// 信息区域
@@ -178,32 +150,21 @@ struct POIDetailView: View {
                         value: String(format: "%.0f 米", mockDistance)
                     )
 
-                    // 物资状态
+                    // 类型
                     infoRow(
-                        icon: "shippingbox.fill",
-                        iconColor: poi.hasResources ? ApocalypseTheme.warning : ApocalypseTheme.textSecondary,
-                        title: "物资状态",
-                        value: poi.hasResources ? "有物资" : "已清空",
-                        valueColor: poi.hasResources ? ApocalypseTheme.warning : ApocalypseTheme.textSecondary
+                        icon: poi.category.systemImage,
+                        iconColor: POIStyle.style(for: poi.category).color,
+                        title: "类型",
+                        value: poi.category.wastelandName
                     )
 
-                    // 危险等级
-                    let dangerInfo = getDangerLevelInfo(level: poi.dangerLevel)
+                    // 搜刮状态
                     infoRow(
-                        icon: "exclamationmark.triangle.fill",
-                        iconColor: dangerInfo.color,
-                        title: "危险等级",
-                        value: dangerInfo.text,
-                        valueColor: dangerInfo.color
-                    )
-
-                    // 发现状态
-                    infoRow(
-                        icon: "eye.fill",
-                        iconColor: poi.status == .discovered ? ApocalypseTheme.success : ApocalypseTheme.textSecondary,
-                        title: "发现状态",
-                        value: poi.status.rawValue,
-                        valueColor: poi.status == .discovered ? ApocalypseTheme.success : ApocalypseTheme.textSecondary
+                        icon: poi.isScavenged ? "checkmark.circle.fill" : "circle",
+                        iconColor: poi.isScavenged ? ApocalypseTheme.textSecondary : ApocalypseTheme.warning,
+                        title: "搜刮状态",
+                        value: poi.isScavenged ? "已搜刮" : "未搜刮",
+                        valueColor: poi.isScavenged ? ApocalypseTheme.textSecondary : ApocalypseTheme.warning
                     )
 
                     // 来源
@@ -214,15 +175,13 @@ struct POIDetailView: View {
                         value: "地图数据"
                     )
 
-                    // 搜索时间（如果有）
-                    if let searchedAt = poi.searchedAt {
-                        infoRow(
-                            icon: "clock.fill",
-                            iconColor: ApocalypseTheme.textSecondary,
-                            title: "搜索时间",
-                            value: formatDate(searchedAt)
-                        )
-                    }
+                    // 坐标
+                    infoRow(
+                        icon: "globe",
+                        iconColor: ApocalypseTheme.textSecondary,
+                        title: "坐标",
+                        value: String(format: "%.4f, %.4f", poi.coordinate.latitude, poi.coordinate.longitude)
+                    )
                 }
             }
             .padding(16)
@@ -261,35 +220,14 @@ struct POIDetailView: View {
     /// 操作按钮区域
     private var actionButtonsSection: some View {
         VStack(spacing: 12) {
-            // 主按钮：搜寻此POI
+            // 主按钮：搜刮此POI
             mainActionButton
-
-            // 两个小按钮
-            HStack(spacing: 12) {
-                // 标记已发现
-                secondaryButton(
-                    title: "标记已发现",
-                    icon: "eye.fill",
-                    color: ApocalypseTheme.success
-                ) {
-                    handleMarkAsDiscovered()
-                }
-
-                // 标记无物资
-                secondaryButton(
-                    title: "标记无物资",
-                    icon: "xmark.circle.fill",
-                    color: ApocalypseTheme.textSecondary
-                ) {
-                    handleMarkAsEmpty()
-                }
-            }
         }
     }
 
     /// 主操作按钮
     private var mainActionButton: some View {
-        let isDisabled = !poi.hasResources
+        let isDisabled = poi.isScavenged
         let buttonColor = isDisabled ? ApocalypseTheme.textSecondary : Color.orange
 
         return Button(action: {
@@ -298,10 +236,10 @@ struct POIDetailView: View {
             }
         }) {
             HStack(spacing: 12) {
-                Image(systemName: isDisabled ? "xmark.circle.fill" : "magnifyingglass.circle.fill")
+                Image(systemName: isDisabled ? "checkmark.circle.fill" : "hand.raised.fingers.spread.fill")
                     .font(.system(size: 20))
 
-                Text(isDisabled ? "此地点已清空" : "搜寻此POI")
+                Text(isDisabled ? "此地点已搜刮" : "搜刮此POI")
                     .font(.system(size: 17, weight: .semibold))
             }
             .foregroundColor(.white)
@@ -323,79 +261,12 @@ struct POIDetailView: View {
         .disabled(isDisabled)
     }
 
-    /// 次要按钮
-    private func secondaryButton(
-        title: String,
-        icon: String,
-        color: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-
-                Text(title)
-                    .font(.system(size: 14, weight: .medium))
-            }
-            .foregroundColor(color)
-            .frame(maxWidth: .infinity)
-            .frame(height: 44)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(color.opacity(0.1))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(color.opacity(0.3), lineWidth: 1)
-            )
-        }
-    }
-
     // MARK: - 辅助方法
-
-    /// 获取危险等级信息
-    private func getDangerLevelInfo(level: Int) -> (text: String, color: Color) {
-        switch level {
-        case 1:
-            return ("安全", ApocalypseTheme.success)
-        case 2:
-            return ("低危", Color.green)
-        case 3:
-            return ("中危", ApocalypseTheme.warning)
-        case 4:
-            return ("高危", Color.orange)
-        case 5:
-            return ("极危", ApocalypseTheme.danger)
-        default:
-            return ("未知", ApocalypseTheme.textSecondary)
-        }
-    }
-
-    /// 格式化日期
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        formatter.locale = Locale(identifier: "zh_CN")
-        return formatter.string(from: date)
-    }
 
     /// 处理探索操作
     private func handleExplore() {
-        print("开始搜寻POI: \(poi.name)")
+        print("开始搜刮POI: \(poi.name)")
         showExplorationResult = true
-    }
-
-    /// 处理标记已发现
-    private func handleMarkAsDiscovered() {
-        print("标记为已发现: \(poi.name)")
-        // TODO: 更新POI状态
-    }
-
-    /// 处理标记无物资
-    private func handleMarkAsEmpty() {
-        print("标记为无物资: \(poi.name)")
-        // TODO: 更新POI物资状态
     }
 }
 
@@ -403,12 +274,23 @@ struct POIDetailView: View {
 
 #Preview {
     NavigationView {
-        POIDetailView(poi: MockExplorationData.shared.mockPOIs[0])
+        POIDetailView(poi: POI(
+            id: "test-1",
+            name: "沃尔玛超市（测试店）",
+            coordinate: CLLocationCoordinate2D(latitude: 31.186565, longitude: 120.612623),
+            category: .supermarket
+        ))
     }
 }
 
-#Preview("已清空POI") {
+#Preview("已搜刮POI") {
     NavigationView {
-        POIDetailView(poi: MockExplorationData.shared.mockPOIs[1])
+        POIDetailView(poi: POI(
+            id: "test-2",
+            name: "东方医院（废墟）",
+            coordinate: CLLocationCoordinate2D(latitude: 31.187000, longitude: 120.613000),
+            category: .hospital,
+            isScavenged: true
+        ))
     }
 }

@@ -12,18 +12,18 @@ import UIKit
 
 // MARK: - Response Models
 
-struct AuthResponse: Codable {
+struct AuthResponse: Codable, Sendable {
     let access_token: String?
     let refresh_token: String?
     let user: UserResponse?
 }
 
-struct UserResponse: Codable {
+struct UserResponse: Codable, Sendable {
     let id: String
     let email: String?
 }
 
-struct ErrorResponse: Codable {
+struct ErrorResponse: Codable, Sendable {
     let message: String
 }
 
@@ -52,11 +52,11 @@ enum AuthError: Error, LocalizedError {
 // MARK: - User Model
 
 /// 用户信息模型
-struct User: Identifiable, Codable {
+struct User: Identifiable, Codable, Sendable {
     let id: UUID
     let email: String?
-    var username: String?
-    var avatarUrl: String?
+    let username: String?
+    let avatarUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id

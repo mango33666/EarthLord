@@ -33,6 +33,26 @@ class ExplorationManager: ObservableObject {
     /// 探索开始位置
     @Published var startLocation: CLLocationCoordinate2D?
 
+    // MARK: - POI 相关属性
+
+    /// 附近的 POI 列表
+    @Published var nearbyPOIs: [POI] = []
+
+    /// 当前接近的 POI（用于弹窗）
+    @Published var currentApproachingPOI: POI?
+
+    /// 是否显示搜刮弹窗
+    @Published var showScavengePopup: Bool = false
+
+    /// 已搜刮的 POI ID 集合
+    private var scavengedPOIIds: Set<String> = []
+
+    /// 地理围栏半径（米）- 改为 100m
+    private let geofenceRadius: Double = 100
+
+    /// POI 接近检测定时器
+    private var poiProximityTimer: Timer?
+
     // MARK: - 私有属性
 
     /// 探索开始时间
@@ -83,6 +103,28 @@ class ExplorationManager: ObservableObject {
                 self?.handleSpeedViolation(isOverSpeed: isOverSpeed)
             }
             .store(in: &cancellables)
+
+        // 订阅 POI 地理围栏进入事件
+        NotificationCenter.default.publisher(for: .didEnterPOIRegion)
+            .sink { [weak self] notification in
+                guard let self = self,
+                      let regionId = notification.userInfo?["regionId"] as? String else { return }
+                Task { @MainActor in
+                    self.handlePOIRegionEntered(regionId: regionId)
+                }
+            }
+            .store(in: &cancellables)
+
+        // ⚠️ 关键：订阅用户位置变化，手动检测 POI 接近
+        // iOS 地理围栏只在进入时触发，不会检测已经在范围内的情况
+        locationManager.$userLocation
+            .sink { [weak self] (location: CLLocationCoordinate2D?) in
+                guard let self = self, let location = location else { return }
+                Task { @MainActor in
+                    self.checkPOIProximity(userLocation: location)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - 公开方法
@@ -117,6 +159,15 @@ class ExplorationManager: ObservableObject {
         // 6. 保存探索会话到数据库（状态：active）
         Task {
             await saveExplorationSession(status: "active")
+        }
+
+        // 7. 搜索并设置附近 POI，搜索完成后启动定时器
+        Task {
+            await searchAndSetupPOIs()
+            // ⚠️ 关键：必须在 POI 搜索完成后才启动定时器！
+            await MainActor.run {
+                startPOIProximityTimer()
+            }
         }
 
         let sessionIdStr = sessionId?.uuidString ?? "unknown"
@@ -196,7 +247,10 @@ class ExplorationManager: ObservableObject {
             items: rewardResult.items
         )
 
-        // 8. 重置状态
+        // 8. 清除 POI 相关状态
+        clearPOIData()
+
+        // 9. 重置状态
         isExploring = false
         self.startTime = nil
         self.sessionId = nil
@@ -204,7 +258,7 @@ class ExplorationManager: ObservableObject {
         currentDuration = 0
         speedViolationStartTime = nil
 
-        // 9. 构建返回数据
+        // 10. 构建返回数据
         let stats = ExplorationStats(
             currentDistance: finalDistance,
             totalDistance: totalDistance,
@@ -500,5 +554,281 @@ class ExplorationManager: ObservableObject {
         }()
 
         return Int(Double(baseExp) * tierBonus)
+    }
+
+    // MARK: - POI 相关方法
+
+    /// 搜索并设置附近 POI
+    private func searchAndSetupPOIs() async {
+        guard let location = locationManager.userLocation else {
+            print("⚠️ [POI] 无法获取用户位置，跳过 POI 搜索")
+            return
+        }
+
+        print("🔍 [POI] 开始搜索附近 POI...")
+        print("   📍 用户位置: (\(String(format: "%.6f", location.latitude)), \(String(format: "%.6f", location.longitude)))")
+
+        do {
+            // 搜索 POI
+            let pois = try await POISearchManager.shared.searchNearbyPOIs(center: location)
+            nearbyPOIs = pois
+
+            print("✅ [POI] 找到 \(pois.count) 个 POI:")
+            for (index, poi) in pois.prefix(5).enumerated() {
+                let poiLocation = CLLocation(latitude: poi.coordinate.latitude, longitude: poi.coordinate.longitude)
+                let userCLLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                let distance = userCLLocation.distance(from: poiLocation)
+                print("   \(index + 1). \(poi.name) - \(poi.category.wastelandName) - 距离: \(Int(distance))m")
+            }
+            if pois.count > 5 {
+                print("   ... 还有 \(pois.count - 5) 个 POI")
+            }
+
+            // 设置地理围栏（作为备用检测机制）
+            setupGeofences(for: pois)
+
+        } catch {
+            print("❌ [POI] 搜索失败: \(error.localizedDescription)")
+        }
+    }
+
+    /// 为 POI 设置地理围栏
+    private func setupGeofences(for pois: [POI]) {
+        print("📍 [POI] 设置地理围栏...")
+
+        for poi in pois {
+            let region = CLCircularRegion(
+                center: poi.coordinate,
+                radius: geofenceRadius,
+                identifier: poi.id
+            )
+            region.notifyOnEntry = true
+            region.notifyOnExit = false
+
+            locationManager.startMonitoringRegion(region)
+        }
+
+        print("✅ [POI] 已设置 \(pois.count) 个地理围栏（半径: \(Int(geofenceRadius))m）")
+    }
+
+    /// 移除所有地理围栏
+    private func removeAllGeofences() {
+        locationManager.stopMonitoringAllRegions()
+        print("🗑️ [POI] 已移除所有地理围栏")
+    }
+
+    /// 清除 POI 相关数据
+    private func clearPOIData() {
+        // 停止 POI 接近检测定时器
+        stopPOIProximityTimer()
+
+        removeAllGeofences()
+        nearbyPOIs.removeAll()
+        scavengedPOIIds.removeAll()
+        currentApproachingPOI = nil
+        showScavengePopup = false
+        print("🗑️ [POI] 已清除所有 POI 数据")
+    }
+
+    // MARK: - POI 接近检测定时器
+
+    /// 启动 POI 接近检测定时器
+    private func startPOIProximityTimer() {
+        // 先停止已有定时器
+        stopPOIProximityTimer()
+
+        print("⏱️ [POI] 启动接近检测定时器（每 2 秒检测一次，范围: \(Int(geofenceRadius))m）")
+
+        // 每 2 秒执行一次接近检测
+        poiProximityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.performPOIProximityCheck()
+            }
+        }
+
+        // 立即执行一次检测
+        performPOIProximityCheck()
+    }
+
+    /// 停止 POI 接近检测定时器
+    private func stopPOIProximityTimer() {
+        poiProximityTimer?.invalidate()
+        poiProximityTimer = nil
+        print("⏱️ [POI] 已停止接近检测定时器")
+    }
+
+    /// 执行 POI 接近检测（定时器回调）
+    private func performPOIProximityCheck() {
+        // 检查是否正在探索
+        guard isExploring else { return }
+
+        // 如果已有弹窗显示，跳过检测
+        guard !showScavengePopup else { return }
+
+        // 如果没有 POI，跳过
+        guard !nearbyPOIs.isEmpty else { return }
+
+        // 获取用户当前位置
+        guard let userLocation = locationManager.userLocation else {
+            print("⚠️ [POI] 无法获取用户位置")
+            return
+        }
+
+        let userCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+
+        // 统计
+        var closestPOI: POI?
+        var closestDistance: Double = Double.infinity
+
+        // 遍历所有未搜刮的 POI，检查是否有接近的
+        for poi in nearbyPOIs where !scavengedPOIIds.contains(poi.id) {
+            let poiLocation = CLLocation(latitude: poi.coordinate.latitude, longitude: poi.coordinate.longitude)
+            let distance = userCLLocation.distance(from: poiLocation)
+
+            // 记录最近的 POI
+            if distance < closestDistance {
+                closestDistance = distance
+                closestPOI = poi
+            }
+
+            // 如果在范围内（100米）
+            if distance <= geofenceRadius {
+                print("🎯 [POI] ✅ 检测到接近！\(poi.name)（距离: \(Int(distance))m ≤ \(Int(geofenceRadius))m）")
+                showPOIScavengePopup(poi: poi)
+                return
+            }
+        }
+
+        // 每 10 秒打印一次最近 POI（减少日志）
+        if let closest = closestPOI, Int(Date().timeIntervalSince1970) % 10 == 0 {
+            print("📍 [POI] 最近: \(closest.name) 距离 \(Int(closestDistance))m（需≤\(Int(geofenceRadius))m）")
+        }
+    }
+
+    // MARK: - 测试方法（仅调试用）
+
+    /// 强制触发最近 POI 的搜刮弹窗（用于测试）
+    func debugTriggerNearestPOI() {
+        guard isExploring else {
+            print("❌ [DEBUG] 未在探索中")
+            return
+        }
+
+        guard !nearbyPOIs.isEmpty else {
+            print("❌ [DEBUG] POI 列表为空")
+            return
+        }
+
+        // 找到第一个未搜刮的 POI
+        if let poi = nearbyPOIs.first(where: { !scavengedPOIIds.contains($0.id) }) {
+            print("🧪 [DEBUG] 强制触发搜刮: \(poi.name)")
+            showPOIScavengePopup(poi: poi)
+        } else {
+            print("❌ [DEBUG] 所有 POI 都已搜刮")
+        }
+    }
+
+    /// 处理进入 POI 地理围栏
+    private func handlePOIRegionEntered(regionId: String) {
+        // 检查是否正在探索
+        guard isExploring else { return }
+
+        // 检查是否已搜刮
+        guard !scavengedPOIIds.contains(regionId) else {
+            print("ℹ️ [POI] 该 POI 已搜刮过，跳过")
+            return
+        }
+
+        // 查找对应的 POI
+        guard let poi = nearbyPOIs.first(where: { $0.id == regionId }) else {
+            print("⚠️ [POI] 未找到对应的 POI: \(regionId)")
+            return
+        }
+
+        // 显示搜刮弹窗
+        showPOIScavengePopup(poi: poi)
+    }
+
+    /// 手动检测 POI 接近（位置更新时触发，作为定时器的补充）
+    private func checkPOIProximity(userLocation: CLLocationCoordinate2D) {
+        // 已由定时器主导检测，此方法作为位置更新时的快速检测
+        // 检查是否正在探索
+        guard isExploring else { return }
+
+        // 如果已有弹窗显示，跳过检测
+        guard !showScavengePopup else { return }
+
+        // 如果没有 POI，跳过
+        guard !nearbyPOIs.isEmpty else { return }
+
+        let userCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+
+        // 遍历所有 POI，检查是否有接近的
+        for poi in nearbyPOIs {
+            // 跳过已搜刮的
+            guard !scavengedPOIIds.contains(poi.id) else { continue }
+
+            let poiLocation = CLLocation(latitude: poi.coordinate.latitude, longitude: poi.coordinate.longitude)
+            let distance = userCLLocation.distance(from: poiLocation)
+
+            // 如果在范围内（100米）
+            if distance <= geofenceRadius {
+                print("📍 [POI] 位置更新检测到接近: \(poi.name)（距离: \(Int(distance))m）")
+                showPOIScavengePopup(poi: poi)
+                return  // 一次只显示一个弹窗
+            }
+        }
+    }
+
+    /// 显示 POI 搜刮弹窗
+    private func showPOIScavengePopup(poi: POI) {
+        // 防止重复显示
+        guard currentApproachingPOI?.id != poi.id else { return }
+
+        print("🎯 [POI] 进入 POI 范围: \(poi.name)")
+
+        currentApproachingPOI = poi
+        showScavengePopup = true
+    }
+
+    /// 关闭搜刮弹窗
+    func dismissScavengePopup() {
+        showScavengePopup = false
+        currentApproachingPOI = nil
+    }
+
+    /// 标记 POI 为已搜刮
+    func markPOIAsScavenged(_ poiId: String) {
+        scavengedPOIIds.insert(poiId)
+
+        // 更新 POI 列表中的状态
+        if let index = nearbyPOIs.firstIndex(where: { $0.id == poiId }) {
+            nearbyPOIs[index].isScavenged = true
+        }
+
+        // 关闭弹窗
+        dismissScavengePopup()
+
+        print("✅ [POI] 已标记为已搜刮: \(poiId)")
+    }
+
+    /// 生成搜刮物品
+    /// - Returns: 获得的物品列表
+    func generateScavengeItems() async -> [ObtainedItem] {
+        // 随机数量：1-3件
+        let count = Int.random(in: 1...3)
+
+        // 使用 RewardGenerator 的物品生成逻辑
+        let rewardResult = await RewardGenerator.shared.generateReward(distance: 500)  // 使用银级概率
+
+        // 取前 count 个物品
+        let items = Array(rewardResult.items.prefix(count))
+
+        print("🎁 [POI] 生成 \(items.count) 件搜刮物品")
+        for item in items {
+            print("   - \(item.itemName) x\(item.quantity)")
+        }
+
+        return items
     }
 }

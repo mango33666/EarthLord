@@ -150,6 +150,25 @@ class LocationManager: NSObject, ObservableObject {
         locationManager.stopUpdatingLocation()
     }
 
+    // MARK: - 地理围栏方法
+
+    /// 开始监控地理围栏
+    func startMonitoringRegion(_ region: CLCircularRegion) {
+        locationManager.startMonitoring(for: region)
+    }
+
+    /// 停止监控地理围栏
+    func stopMonitoringRegion(_ region: CLCircularRegion) {
+        locationManager.stopMonitoring(for: region)
+    }
+
+    /// 停止所有地理围栏监控
+    func stopMonitoringAllRegions() {
+        for region in locationManager.monitoredRegions {
+            locationManager.stopMonitoring(for: region)
+        }
+    }
+
     // MARK: - 路径追踪方法
 
     /// 开始路径追踪
@@ -633,5 +652,41 @@ extension LocationManager: CLLocationManagerDelegate {
         DispatchQueue.main.async {
             self.locationError = "定位失败：\(error.localizedDescription)"
         }
+    }
+
+    // MARK: - 地理围栏代理方法
+
+    /// 进入地理围栏时调用
+    func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        print("📍 [LocationManager] 进入地理围栏: \(region.identifier)")
+
+        // 发送通知，由 ExplorationManager 处理
+        NotificationCenter.default.post(
+            name: .didEnterPOIRegion,
+            object: nil,
+            userInfo: ["regionId": region.identifier]
+        )
+    }
+
+    /// 离开地理围栏时调用
+    func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        print("📍 [LocationManager] 离开地理围栏: \(region.identifier)")
+
+        // 发送通知
+        NotificationCenter.default.post(
+            name: .didExitPOIRegion,
+            object: nil,
+            userInfo: ["regionId": region.identifier]
+        )
+    }
+
+    /// 开始监控地理围栏
+    func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
+        print("✅ [LocationManager] 开始监控地理围栏: \(region.identifier)")
+    }
+
+    /// 地理围栏监控失败
+    func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
+        print("❌ [LocationManager] 地理围栏监控失败: \(region?.identifier ?? "unknown") - \(error.localizedDescription)")
     }
 }

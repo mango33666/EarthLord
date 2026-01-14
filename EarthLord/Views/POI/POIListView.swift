@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import CoreLocation
 
 // MARK: - POI 列表视图
 
@@ -258,7 +259,7 @@ struct POIListView: View {
 
     /// POI卡片
     private func poiCard(poi: POI) -> some View {
-        let poiStyle = POIStyle.style(for: poi.type)
+        let poiStyle = POIStyle.style(for: poi.category)
 
         return ELCard {
             HStack(spacing: 16) {
@@ -281,28 +282,22 @@ struct POIListView: View {
                         .lineLimit(1)
 
                     // 类型
-                    Text(poi.type.rawValue)
+                    Text(poi.category.wastelandName)
                         .font(.system(size: 13))
                         .foregroundColor(poiStyle.color)
 
                     // 状态标签
                     HStack(spacing: 8) {
-                        // 发现状态
-                        statusLabel(
-                            text: poi.status.rawValue,
-                            color: poi.status == .discovered ? ApocalypseTheme.success : ApocalypseTheme.textSecondary
-                        )
-
-                        // 物资状态
-                        if poi.hasResources {
+                        // 搜刮状态
+                        if poi.isScavenged {
                             statusLabel(
-                                text: "有物资",
-                                color: ApocalypseTheme.warning
+                                text: "已搜刮",
+                                color: ApocalypseTheme.textSecondary
                             )
                         } else {
                             statusLabel(
-                                text: "已搜空",
-                                color: ApocalypseTheme.textSecondary
+                                text: "未搜刮",
+                                color: ApocalypseTheme.warning
                             )
                         }
                     }
@@ -345,8 +340,8 @@ struct POIListView: View {
         switch selectedFilter {
         case .all:
             displayedPOIs = allPOIs
-        case .specific(let type):
-            displayedPOIs = allPOIs.filter { $0.type == type }
+        case .specific(let category):
+            displayedPOIs = allPOIs.filter { $0.category == category }
         }
     }
 
@@ -367,14 +362,14 @@ struct POIListView: View {
 
 enum POIFilterType: Hashable {
     case all
-    case specific(POIType)
+    case specific(POICategory)
 
     static var allCases: [POIFilterType] {
         return [
             .all,
             .specific(.hospital),
             .specific(.supermarket),
-            .specific(.factory),
+            .specific(.convenience),
             .specific(.pharmacy),
             .specific(.gasStation)
         ]
@@ -384,8 +379,8 @@ enum POIFilterType: Hashable {
         switch self {
         case .all:
             return "全部"
-        case .specific(let type):
-            return type.rawValue
+        case .specific(let category):
+            return category.rawValue
         }
     }
 
@@ -393,8 +388,8 @@ enum POIFilterType: Hashable {
         switch self {
         case .all:
             return "square.grid.2x2.fill"
-        case .specific(let type):
-            return POIStyle.style(for: type).iconName
+        case .specific(let category):
+            return POIStyle.style(for: category).iconName
         }
     }
 }
@@ -405,22 +400,26 @@ struct POIStyle {
     let color: Color
     let iconName: String
 
-    static func style(for type: POIType) -> POIStyle {
-        switch type {
+    static func style(for category: POICategory) -> POIStyle {
+        switch category {
         case .hospital:
             return POIStyle(color: .red, iconName: "cross.case.fill")
         case .supermarket:
             return POIStyle(color: .green, iconName: "cart.fill")
-        case .factory:
-            return POIStyle(color: .gray, iconName: "building.2.fill")
         case .pharmacy:
             return POIStyle(color: .purple, iconName: "pills.fill")
         case .gasStation:
             return POIStyle(color: .orange, iconName: "fuelpump.fill")
-        case .warehouse:
-            return POIStyle(color: .blue, iconName: "shippingbox.fill")
-        case .school:
-            return POIStyle(color: .cyan, iconName: "book.fill")
+        case .convenience:
+            return POIStyle(color: .blue, iconName: "building.2.fill")
+        case .store:
+            return POIStyle(color: .cyan, iconName: "storefront")
+        case .restaurant:
+            return POIStyle(color: .yellow, iconName: "fork.knife")
+        case .cafe:
+            return POIStyle(color: .brown, iconName: "cup.and.saucer.fill")
+        case .other:
+            return POIStyle(color: .gray, iconName: "mappin.circle.fill")
         }
     }
 }

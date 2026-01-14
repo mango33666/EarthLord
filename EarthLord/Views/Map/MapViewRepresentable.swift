@@ -9,6 +9,18 @@
 import SwiftUI
 import MapKit
 
+// MARK: - POI 标注类
+
+/// 自定义 POI 标注
+class POIAnnotation: MKPointAnnotation {
+    let poi: POI
+
+    init(poi: POI) {
+        self.poi = poi
+        super.init()
+    }
+}
+
 // MARK: - 地图视图包装器
 
 /// 将 UIKit 的 MKMapView 包装成 SwiftUI 视图
@@ -42,6 +54,12 @@ struct MapViewRepresentable: UIViewRepresentable {
 
     /// 当前用户 ID
     let currentUserId: String?
+
+    /// POI 列表
+    var pois: [POI] = []
+
+    /// POI 点击回调
+    var onPOITapped: ((POI) -> Void)?
 
     // MARK: - UIViewRepresentable 协议方法
 
@@ -81,6 +99,9 @@ struct MapViewRepresentable: UIViewRepresentable {
 
         // 更新追踪路径
         updateTrackingPath(on: uiView, context: context)
+
+        // 更新 POI 标记（传入 context 以使用缓存）
+        updatePOIAnnotations(on: uiView, context: context)
     }
 
     /// 创建协调器
@@ -179,6 +200,58 @@ struct MapViewRepresentable: UIViewRepresentable {
         }
     }
 
+    // MARK: - POI 标记
+
+    /// 更新 POI 标记
+    private func updatePOIAnnotations(on mapView: MKMapView, context: Context) {
+        // ⚠️ 关键：检查 POI 列表是否真的改变了，避免频繁刷新导致闪烁
+        let currentPOIIds = Set(pois.map { $0.id })
+        let existingPOIIds = context.coordinator.displayedPOIIds
+
+        // 如果 POI 列表没变，检查是否有搜刮状态更新
+        let needsScavengeUpdate = pois.contains { poi in
+            if let existingPOI = context.coordinator.displayedPOIs[poi.id] {
+                return existingPOI.isScavenged != poi.isScavenged
+            }
+            return false
+        }
+
+        // 如果 POI 列表相同且无状态更新，跳过
+        guard currentPOIIds != existingPOIIds || needsScavengeUpdate else {
+            return
+        }
+
+        print("🗺️ [MapView] 更新 POI 标记，数量: \(pois.count)")
+
+        // 移除旧的 POI 标记
+        let existingPOIAnnotations = mapView.annotations.filter { annotation in
+            annotation is POIAnnotation
+        }
+        mapView.removeAnnotations(existingPOIAnnotations)
+
+        // 更新缓存
+        context.coordinator.displayedPOIIds = currentPOIIds
+        context.coordinator.displayedPOIs.removeAll()
+
+        // 如果没有 POI，直接返回
+        guard !pois.isEmpty else { return }
+
+        // 添加新的 POI 标记
+        for poi in pois {
+            // ⚠️ 关键修复：MKLocalSearch 返回的坐标在中国已经是 GCJ-02
+            // 不需要再次转换，直接使用原坐标
+            let annotation = POIAnnotation(poi: poi)
+            annotation.coordinate = poi.coordinate
+            annotation.title = poi.name
+            annotation.subtitle = poi.category.wastelandName
+
+            mapView.addAnnotation(annotation)
+
+            // 缓存 POI 状态
+            context.coordinator.displayedPOIs[poi.id] = poi
+        }
+    }
+
     // MARK: - 协调器
 
     /// 协调器：处理地图事件和用户位置更新
@@ -190,6 +263,12 @@ struct MapViewRepresentable: UIViewRepresentable {
 
         /// 是否已完成首次居中（防止重复居中）
         private var hasInitialCentered = false
+
+        /// 当前显示的 POI ID 集合（用于检测变化，避免闪烁）
+        var displayedPOIIds: Set<String> = []
+
+        /// 当前显示的 POI 缓存（用于检测状态变化）
+        var displayedPOIs: [String: POI] = [:]
 
         // MARK: - 初始化
 
@@ -288,6 +367,65 @@ struct MapViewRepresentable: UIViewRepresentable {
         func mapViewDidFinishLoadingMap(_ mapView: MKMapView) {
             // 地图加载完成
         }
+
+        // MARK: - POI 标注视图
+
+        /// 自定义标注视图
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            // 用户位置使用默认蓝点
+            guard !(annotation is MKUserLocation) else { return nil }
+
+            // POI 标注
+            if let poiAnnotation = annotation as? POIAnnotation {
+                let identifier = "POIAnnotation"
+                var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+
+                if annotationView == nil {
+                    annotationView = MKMarkerAnnotationView(annotation: poiAnnotation, reuseIdentifier: identifier)
+                    annotationView?.canShowCallout = true
+                    // ⚠️ 关键修复：禁用添加动画，避免频繁更新时的闪烁
+                    annotationView?.animatesWhenAdded = false
+                } else {
+                    annotationView?.annotation = poiAnnotation
+                }
+
+                // 根据类型设置颜色和图标
+                let poi = poiAnnotation.poi
+                annotationView?.markerTintColor = poi.isScavenged ? .gray : .orange
+                annotationView?.glyphText = poi.category.icon
+                annotationView?.titleVisibility = .adaptive
+                annotationView?.subtitleVisibility = .hidden
+
+                // ⚠️ 关键：添加搜刮按钮到标注弹窗
+                if !poi.isScavenged {
+                    let scavengeButton = UIButton(type: .detailDisclosure)
+                    annotationView?.rightCalloutAccessoryView = scavengeButton
+                } else {
+                    annotationView?.rightCalloutAccessoryView = nil
+                }
+
+                return annotationView
+            }
+
+            return nil
+        }
+
+        /// ⭐ 关键方法：点击 POI 标注的附属视图（搜刮按钮）
+        func mapView(_ mapView: MKMapView, annotationView view: MKAnnotationView, calloutAccessoryControlTapped control: UIControl) {
+            guard let poiAnnotation = view.annotation as? POIAnnotation else { return }
+
+            let poi = poiAnnotation.poi
+            print("🎯 [MapView] 用户点击了 POI 搜刮按钮: \(poi.name)")
+
+            // 调用回调
+            parent.onPOITapped?(poi)
+        }
+
+        /// 点击 POI 标注时调用
+        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            guard let poiAnnotation = annotation as? POIAnnotation else { return }
+            print("📍 [MapView] 用户选中了 POI: \(poiAnnotation.poi.name)")
+        }
     }
 }
 
@@ -303,6 +441,8 @@ struct MapViewRepresentable: UIViewRepresentable {
         isPathClosed: false,
         territories: [],
         territoriesVersion: 0,
-        currentUserId: nil
+        currentUserId: nil,
+        pois: [],
+        onPOITapped: nil
     )
 }

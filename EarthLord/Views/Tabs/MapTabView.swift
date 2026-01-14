@@ -82,6 +82,17 @@ struct MapTabView: View {
     /// 探索统计数据
     @State private var explorationStats: ExplorationStats?
 
+    // MARK: - POI 搜刮状态
+
+    /// 搜刮结果物品
+    @State private var scavengedItems: [ObtainedItem] = []
+
+    /// 是否显示搜刮结果
+    @State private var showScavengeResult = false
+
+    /// 当前搜刮的 POI
+    @State private var scavengedPOI: POI?
+
     // MARK: - 主视图
 
     var body: some View {
@@ -96,7 +107,15 @@ struct MapTabView: View {
                 isPathClosed: locationManager.isPathClosed,
                 territories: territories,
                 territoriesVersion: territoriesVersion,
-                currentUserId: currentUserId
+                currentUserId: currentUserId,
+                pois: explorationManager.nearbyPOIs,
+                onPOITapped: { poi in
+                    // ⭐ 点击地图上的 POI 直接触发搜刮
+                    print("🎯 [MapTabView] 收到 POI 点击: \(poi.name)")
+                    if !poi.isScavenged && explorationManager.isExploring {
+                        handleScavenge(poi)
+                    }
+                }
             )
             .ignoresSafeArea()
 
@@ -127,8 +146,8 @@ struct MapTabView: View {
                 permissionDeniedCard
             }
 
-            // 探索进行中的实时数据卡片
-            if explorationManager.isExploring {
+            // 探索进行中的实时数据卡片（搜刮弹窗显示时隐藏）
+            if explorationManager.isExploring && !explorationManager.showScavengePopup && !showScavengeResult {
                 VStack {
                     Spacer()
                     explorationLiveCard
@@ -136,31 +155,56 @@ struct MapTabView: View {
                 }
             }
 
-            // 右下角按钮组
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        // 确认登记按钮（只在验证通过时显示）
-                        if locationManager.territoryValidationPassed {
-                            confirmTerritoryButton
-                        }
+            // POI 搜刮弹窗
+            if explorationManager.showScavengePopup,
+               let poi = explorationManager.currentApproachingPOI {
+                POIScavengePopup(
+                    poi: poi,
+                    onScavenge: { handleScavenge(poi) },
+                    onDismiss: { explorationManager.dismissScavengePopup() }
+                )
+            }
 
-                        // 底部按钮组（圈地、定位、探索）
-                        HStack(spacing: 12) {
-                            // 圈地按钮
-                            trackingButton
-
-                            // 定位按钮
-                            locationButton
-
-                            // 探索按钮
-                            explorationButton
-                        }
+            // 搜刮结果视图
+            if showScavengeResult, let poi = scavengedPOI {
+                ScavengeResultView(
+                    poi: poi,
+                    items: scavengedItems,
+                    onConfirm: {
+                        showScavengeResult = false
+                        scavengedPOI = nil
+                        scavengedItems = []
                     }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 100)
+                )
+            }
+
+            // 右下角按钮组（搜刮弹窗显示时隐藏）
+            if !explorationManager.showScavengePopup && !showScavengeResult {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            // 确认登记按钮（只在验证通过时显示）
+                            if locationManager.territoryValidationPassed {
+                                confirmTerritoryButton
+                            }
+
+                            // 底部按钮组（圈地、定位、探索）
+                            HStack(spacing: 12) {
+                                // 圈地按钮
+                                trackingButton
+
+                                // 定位按钮
+                                locationButton
+
+                                // 探索按钮
+                                explorationButton
+                            }
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 100)
+                    }
                 }
             }
         }
@@ -641,6 +685,35 @@ struct MapTabView: View {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
         return "\(minutes):\(String(format: "%02d", seconds))"
+    }
+
+    // MARK: - POI 搜刮方法
+
+    /// 处理搜刮操作
+    private func handleScavenge(_ poi: POI) {
+        Task {
+            // 关闭搜刮弹窗
+            explorationManager.dismissScavengePopup()
+
+            // 生成随机物品
+            let items = await explorationManager.generateScavengeItems()
+
+            // 添加到背包
+            do {
+                try await InventoryManager.shared.addItems(items)
+                print("✅ [MapTabView] 搜刮物品已添加到背包")
+            } catch {
+                print("❌ [MapTabView] 添加物品失败: \(error.localizedDescription)")
+            }
+
+            // 标记 POI 已搜刮
+            explorationManager.markPOIAsScavenged(poi.id)
+
+            // 显示搜刮结果
+            scavengedItems = items
+            scavengedPOI = poi
+            showScavengeResult = true
+        }
     }
 
     /// 探索进行中的实时数据卡片

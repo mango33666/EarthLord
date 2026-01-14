@@ -3,53 +3,13 @@
 //  EarthLord
 //
 //  探索模块测试假数据
-//  用于开发和测试探索、背包、POI等功能
+//  用于开发和测试探索、背包等功能
+//
+//  注意：POI 数据模型已移至 POI.swift
 //
 
 import Foundation
 import CoreLocation
-
-// MARK: - POI 兴趣点数据模型
-
-/// 兴趣点状态
-enum POIStatus: String, Codable {
-    case undiscovered = "未发现"  // 未被探索过
-    case discovered = "已发现"    // 已被探索过
-}
-
-/// 兴趣点类型
-enum POIType: String, Codable {
-    case supermarket = "超市"
-    case hospital = "医院"
-    case gasStation = "加油站"
-    case pharmacy = "药店"
-    case factory = "工厂"
-    case warehouse = "仓库"
-    case school = "学校"
-}
-
-/// 兴趣点（Point of Interest）
-struct POI: Identifiable, Codable {
-    let id: String
-    let name: String                    // 名称
-    let type: POIType                   // 类型
-    let location: LocationCoordinate    // 位置坐标
-    let status: POIStatus               // 状态
-    let hasResources: Bool              // 是否有物资
-    let description: String             // 描述
-    let searchedAt: Date?               // 搜索时间
-    let dangerLevel: Int                // 危险等级 (1-5)
-}
-
-/// 位置坐标（可编码版本）
-struct LocationCoordinate: Codable {
-    let latitude: Double
-    let longitude: Double
-
-    func toCLLocationCoordinate2D() -> CLLocationCoordinate2D {
-        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    }
-}
 
 // MARK: - 物品数据模型
 
@@ -179,86 +139,47 @@ class MockExplorationData {
 
     // MARK: - POI 测试数据
 
-    /// 测试POI列表（5个不同状态的兴趣点）
+    /// 测试POI列表（使用新的 POI 模型）
     lazy var mockPOIs: [POI] = [
-        // 1. 废弃超市：已发现，有物资
+        // 1. 废弃超市
         POI(
             id: "poi_001",
             name: "华联超市（废弃）",
-            type: .supermarket,
-            location: LocationCoordinate(
-                latitude: 31.186565,
-                longitude: 120.612623
-            ),
-            status: .discovered,
-            hasResources: true,
-            description: "二层建筑，大部分货架已空，但仍可能有物资残留。注意货架倒塌风险。",
-            searchedAt: Date().addingTimeInterval(-86400 * 3), // 3天前
-            dangerLevel: 2 // 低危
+            coordinate: CLLocationCoordinate2D(latitude: 31.186565, longitude: 120.612623),
+            category: .supermarket
         ),
 
-        // 2. 医院废墟：已发现，已被搜空
+        // 2. 医院废墟
         POI(
             id: "poi_002",
             name: "东方医院（废墟）",
-            type: .hospital,
-            location: LocationCoordinate(
-                latitude: 31.187000,
-                longitude: 120.613000
-            ),
-            status: .discovered,
-            hasResources: false,
-            description: "建筑严重损毁，所有物资已被搜空。危险区域，不建议再次进入。",
-            searchedAt: Date().addingTimeInterval(-86400 * 7), // 7天前
-            dangerLevel: 3 // 中危
+            coordinate: CLLocationCoordinate2D(latitude: 31.187000, longitude: 120.613000),
+            category: .hospital,
+            isScavenged: true  // 已搜刮
         ),
 
-        // 3. 加油站：未发现
+        // 3. 加油站
         POI(
             id: "poi_003",
             name: "中石化加油站",
-            type: .gasStation,
-            location: LocationCoordinate(
-                latitude: 31.186000,
-                longitude: 120.614000
-            ),
-            status: .undiscovered,
-            hasResources: true,
-            description: "小型加油站，可能有燃料和工具物资。",
-            searchedAt: nil,
-            dangerLevel: 4 // 高危
+            coordinate: CLLocationCoordinate2D(latitude: 31.186000, longitude: 120.614000),
+            category: .gasStation
         ),
 
-        // 4. 药店废墟：已发现，有物资
+        // 4. 药店废墟
         POI(
             id: "poi_004",
             name: "百姓药房（废弃）",
-            type: .pharmacy,
-            location: LocationCoordinate(
-                latitude: 31.185500,
-                longitude: 120.612000
-            ),
-            status: .discovered,
-            hasResources: true,
-            description: "单层建筑，部分药品还可使用。需要专业知识识别药品。",
-            searchedAt: Date().addingTimeInterval(-86400), // 1天前
-            dangerLevel: 2 // 低危
+            coordinate: CLLocationCoordinate2D(latitude: 31.185500, longitude: 120.612000),
+            category: .pharmacy
         ),
 
-        // 5. 工厂废墟：未发现
+        // 5. 便利店
         POI(
             id: "poi_005",
-            name: "机械制造厂（废弃）",
-            type: .factory,
-            location: LocationCoordinate(
-                latitude: 31.185000,
-                longitude: 120.615000
-            ),
-            status: .undiscovered,
-            hasResources: true,
-            description: "大型工厂，可能有工具、材料等物资。结构复杂，探索需谨慎。",
-            searchedAt: nil,
-            dangerLevel: 5 // 极危
+            name: "全家便利店（废弃）",
+            coordinate: CLLocationCoordinate2D(latitude: 31.185000, longitude: 120.615000),
+            category: .convenience
         )
     ]
 
@@ -568,18 +489,13 @@ class MockExplorationData {
         return totalVolume
     }
 
-    /// 获取已发现的POI列表
-    func getDiscoveredPOIs() -> [POI] {
-        return mockPOIs.filter { $0.status == .discovered }
+    /// 获取已搜刮的POI列表
+    func getScavengedPOIs() -> [POI] {
+        return mockPOIs.filter { $0.isScavenged }
     }
 
-    /// 获取未发现的POI列表
-    func getUndiscoveredPOIs() -> [POI] {
-        return mockPOIs.filter { $0.status == .undiscovered }
-    }
-
-    /// 获取有物资的POI列表
-    func getPOIsWithResources() -> [POI] {
-        return mockPOIs.filter { $0.hasResources }
+    /// 获取未搜刮的POI列表
+    func getUnscavengedPOIs() -> [POI] {
+        return mockPOIs.filter { !$0.isScavenged }
     }
 }
